@@ -251,7 +251,7 @@ export const printService = {
               <img src="${logoUrl || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=200'}" alt="Company Icon">
               <div class="print-header-text">
                 <h1>${title}</h1>
-                <p>CHAISRI AGRO-INDUSTRIAL • OJT TRAINEE ARCHIVE</p>
+                <p>บริษัท ที ออลล์ อินเทลลิเจนซ์ จำกัด / 46 หมู่ที่ 5 ตำบลคลองสี่ อำเภอคลองหลวง จังหวัดปทุมธานี 12120</p>
               </div>
             </div>
 

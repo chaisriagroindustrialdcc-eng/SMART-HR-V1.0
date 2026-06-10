@@ -10,7 +10,7 @@ import { getStatusPrintClass, PRINT_STATUS_STYLES } from '../../utils/printUtils
 import OjtTrendChart from './components/OjtTrendChart';
 import OjtSkillHeatmap from './components/OjtSkillHeatmap';
 import SkillRecommender from './components/SkillRecommender';
-import TraineeTimeline from './components/TraineeTimeline';
+import TraineeSkillTimeline from './components/TraineeSkillTimeline';
 import RecertificationAlerts from './components/RecertificationAlerts';
 import { useAuth } from '../../context/AuthContext';
 import { addSystemLog } from '../../services/logger';
@@ -462,7 +462,7 @@ export default function OjtTraining() {
               <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=200" alt="Company Icon">
               <div class="print-header-text">
                 <h1>Apprentice Skill Matrix Dossier</h1>
-                <p>CHAISRI AGRO-INDUSTRIAL • ON-THE-JOB TRAINING ARCHIVES</p>
+                <p>บริษัท ที ออลล์ อินเทลลิเจนซ์ จำกัด / 46 หมู่ที่ 5 ตำบลคลองสี่ อำเภอคลองหลวง จังหวัดปทุมธานี 12120</p>
               </div>
             </div>
 
@@ -945,82 +945,84 @@ export default function OjtTraining() {
         )}
       </div>
 
-      {/* Visual Analytics Bento Grid: Mastery Trend Line, Department Heatmap & AI Copilot Recommender */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-        <div className="lg:col-span-2">
+      {/* Visual Analytics Bento Grid: Mastery Trend Line, Department Heatmap, AI Copilot Recommender & Policy Setup Pairs */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Pair 1, Col 1: OJT Mastery Progress Trend */}
+        <div className="flex flex-col">
           <OjtTrendChart learners={learners} />
         </div>
-        <div className="lg:col-span-1">
-          <OjtSkillHeatmap learners={learners} />
-        </div>
-        <div className="lg:col-span-1">
-          <SkillRecommender 
-            learners={learners} 
-            onAdoptSkill={(recomSkill, learnerId) => {
-              // Add recommended skill to current OJT learners in state
-              const updated = learners.map(l => {
-                if (l.id === learnerId) {
-                  const existingSkills = l.skills || [];
-                  if (!existingSkills.some(s => s.name === recomSkill.name)) {
-                    return {
-                      ...l,
-                      skills: [...existingSkills, { 
-                        name: recomSkill.name, 
-                        mastered: false, 
-                        category: recomSkill.category as any
-                      }]
-                    };
-                  }
-                }
-                return l;
-              });
-              saveLearners(updated);
-            }} 
-          />
+        {/* Pair 1, Col 2: OJT Policy & Standards Configuration */}
+        <div className="bg-[#f8f9fa] rounded-2xl border border-[#eaeaec] p-6 relative overflow-hidden font-sans flex flex-col justify-between h-full shadow-sm">
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-[12px] font-black text-[#212c46] uppercase tracking-widest flex items-center gap-2">
+                <Icons.Sliders size={15} className="text-[#b58c4f]"/> ระบบนโยบายมาตรฐานการประเมิน (OJT Policy & Standards Configuration)
+              </h4>
+              <button 
+                onClick={() => setIsPolicyModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#212c46] hover:bg-[#b58c4f] hover:text-white text-white rounded-lg text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+              >
+                <Icons.Edit3 size={11} />
+                {language === 'TH' ? 'แก้ไขนโยบาย' : 'Edit Policy Rules'}
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-4">
+              <div className="bg-white p-3 rounded-xl border border-[#eaeaec]">
+                <span className="block text-[10px] font-black text-[#7a8b95] uppercase tracking-widest mb-1.5 font-sans">จำนวนชั่วโมง OJT ขั้นต่ำ (Required OJT Hours)</span>
+                <div className="flex items-center justify-between font-sans">
+                  <span className="text-[16px] font-black text-[#212c46] font-mono">{requiredHours}</span>
+                  <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300">Department Standard</span>
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-[#eaeaec]">
+                <span className="block text-[10px] font-black text-[#7a8b95] uppercase tracking-widest mb-1.5 font-sans">เกรดผ่านประเมินเฉลี่ยขั้นต่ำ (Score Passing Grade)</span>
+                <div className="flex items-center justify-between font-sans">
+                  <span className="text-[16px] font-black text-[#212c46] font-mono">{targetScore}</span>
+                  <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300">Certified Cap</span>
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-[#eaeaec]">
+                <span className="block text-[10px] font-black text-[#7a8b95] uppercase tracking-widest mb-1.5 font-sans">การปิดรับรองผลบังคับ (Evaluator Sign-Off)</span>
+                <div className="flex items-center justify-between font-sans">
+                  <span className="text-[16px] font-black text-[#932c2e] font-mono">{trainerMandatory}</span>
+                  <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-rose-50 text-rose-800 border border-rose-300">Verification Rule</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p className="text-[9.5px] text-[#7a8b95] font-bold mt-4 leading-relaxed font-sans text-center">
+            นโยบายมาตรฐานการประเมินได้รับการตั้งค่าและปรับสมดุลแบบดิจิทัลเพื่อใช้รับรองผลสภาวการณ์ฝึกงาน OJT ในระดับสากลภายในระบบ
+          </p>
         </div>
       </div>
 
-      {/* 6. Model Registry Configuration Settings Segment (Standardized design inspired by permissions) */}
-      <div className="bg-[#f8f9fa] rounded-2xl border border-[#eaeaec] p-6 mb-8 relative overflow-hidden font-sans">
-        <div className="flex justify-between items-center mb-4">
-          <h4 className="text-[12px] font-black text-[#212c46] uppercase tracking-widest flex items-center gap-2">
-            <Icons.Sliders size={15} className="text-[#b58c4f]"/> ระบบนโยบายมาตรฐานการประเมิน (OJT Policy & Standards Configuration)
-          </h4>
-          <button 
-            onClick={() => setIsPolicyModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#212c46] hover:bg-[#b58c4f] hover:text-white text-white rounded-lg text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs"
-          >
-            <Icons.Edit3 size={11} />
-            {language === 'TH' ? 'แก้ไขนโยบาย' : 'Edit Policy Rules'}
-          </button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-4 rounded-xl border border-[#eaeaec]">
-            <span className="block text-[10px] font-black text-[#7a8b95] uppercase tracking-widest mb-2 font-sans">จำนวนชั่วโมง OJT ขั้นต่ำ (Required OJT Hours)</span>
-            <div className="flex items-center justify-between font-sans">
-              <span className="text-[18px] font-black text-[#212c46] font-mono">{requiredHours}</span>
-              <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300">Department Standard</span>
-            </div>
-            <p className="text-[10px] text-[#7a8b95] font-bold mt-2 leading-relaxed font-sans">จำนวนชั่วโมงเรียนรู้งานภาคสนามที่พนักงานทุกคนต้องเก็บสะสมให้ครบตามเกณฑ์</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-[#eaeaec]">
-            <span className="block text-[10px] font-black text-[#7a8b95] uppercase tracking-widest mb-2 font-sans">เกรดผ่านประเมินเฉลี่ยขั้นต่ำ (Score Passing Grade)</span>
-            <div className="flex items-center justify-between font-sans">
-              <span className="text-[18px] font-black text-[#212c46] font-mono">{targetScore}</span>
-              <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300">Certified Cap</span>
-            </div>
-            <p className="text-[10px] text-[#7a8b95] font-bold mt-2 leading-relaxed font-sans">ผลทดสอบประเมินปลายทางคิดรวมจากแบบวิทยากรผู้ฝึกสอนสอนหน้างานสัมผัส</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-[#eaeaec]">
-            <span className="block text-[10px] font-black text-[#7a8b95] uppercase tracking-widest mb-2 font-sans">การปิดรับรองผลบังคับ (Evaluator Sign-Off)</span>
-            <div className="flex items-center justify-between font-sans">
-              <span className="text-[18px] font-black text-[#932c2e] font-mono">{trainerMandatory}</span>
-              <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded bg-rose-50 text-rose-800 border border-rose-300">Verification Rule</span>
-            </div>
-            <p className="text-[10px] text-[#7a8b95] font-bold mt-2 leading-relaxed font-sans">ข้อบังคับให้ผู้จัดฝ่ายทรัพยากรลงลายเซ็นระเบียนดิจิตอลยืนยันผลอบรมสิ้นสุด</p>
-          </div>
-        </div>
+      {/* Pair 2: Recharts Department Mastery Spectrum paired with AI OJT Skill Recommender */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <OjtSkillHeatmap learners={learners} />
+        <SkillRecommender 
+          learners={learners} 
+          onAdoptSkill={(recomSkill, learnerId) => {
+            // Add recommended skill to current OJT learners in state
+            const updated = learners.map(l => {
+              if (l.id === learnerId) {
+                const existingSkills = l.skills || [];
+                if (!existingSkills.some(s => s.name === recomSkill.name)) {
+                  return {
+                    ...l,
+                    skills: [...existingSkills, { 
+                      name: recomSkill.name, 
+                      mastered: false, 
+                      category: recomSkill.category as any
+                    }]
+                  };
+                }
+              }
+              return l;
+            });
+            saveLearners(updated);
+          }} 
+        />
       </div>
 
       {/* --- ALL DRAGGABLE ACTION MODALS --- */}
@@ -1128,10 +1130,9 @@ export default function OjtTraining() {
 
       {/* Trainee OJT Skill Timeline drill-down dialogue modal workspace */}
       {isTimelineOpen && selectedTimelineLearner && (
-        <TraineeTimeline
+        <TraineeSkillTimeline
           isOpen={isTimelineOpen}
-          learner={selectedTimelineLearner}
-          coachingLogs={coachingLogs}
+          learnerId={selectedTimelineLearner.id}
           onClose={() => {
             setIsTimelineOpen(false);
             setSelectedTimelineLearner(null);

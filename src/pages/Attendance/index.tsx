@@ -3350,6 +3350,13 @@ export default function Attendance() {
         isOpen={isAttendancePrintOpen}
         onClose={() => setIsAttendancePrintOpen(false)}
         title="Batch Print Attendance Timecards - T All Intelligence"
+        sections={[
+          { id: 'att-card-header', label: 'Company Header & Address (หัวกระดาษบริษัท)' },
+          { id: 'att-card-profile', label: 'Cardholder Profile Details (ข้อมูลสแกนนิ้วมือ)' },
+          { id: 'att-card-punches', label: 'Work Shifts & punches Table (ชั่วโมงและรายการเข้า-ออก)' },
+          { id: 'att-card-compliance', label: 'Compliance Audit Remarks (คีย์ประมวลผลระบบและหมายเหตุ)' },
+          { id: 'att-card-signatures', label: 'Authorization & Signatures (ลายมือชื่อผู้ยืนยันข้อมูล)' }
+        ]}
       >
         <div className="space-y-12 print-layout">
           {rawScannerLogs.filter(log => selectedRawLogIds.includes(log.id)).map((log, idx, arr) => {
@@ -3365,7 +3372,7 @@ export default function Attendance() {
                 }}
               >
                 {/* Standard Dual Company Header */}
-                <div className="flex justify-between items-start border-b-[2px] border-[#212c46] pb-4 mb-4">
+                <div data-section="att-card-header" className="flex justify-between items-start border-b-[2px] border-[#212c46] pb-4 mb-4">
                   <div className="text-left font-sans">
                     <h2 className="text-sm font-black text-[#212c46] uppercase leading-tight">T All Intelligence Co., Ltd.</h2>
                     <p className="text-[10px] text-slate-500 font-bold">บริษัท ที ออลล์ อินเทลลิเจนซ์ จำกัด</p>
@@ -3382,7 +3389,7 @@ export default function Attendance() {
                 </div>
 
                 {/* Info Area */}
-                <div className="grid grid-cols-2 gap-4 text-[10px] bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 font-sans">
+                <div data-section="att-card-profile" className="grid grid-cols-2 gap-4 text-[10px] bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 font-sans">
                   <div className="space-y-1">
                     <p><span className="text-slate-400 font-bold uppercase">Scanner ID / รหัสแสกน ACNo:</span> <span className="font-bold text-slate-800">{log.acNo || 'N/A'}</span></p>
                     <p><span className="text-slate-400 font-bold uppercase">Name / ชื่อในระบบแสกน:</span> <span className="font-bold text-slate-800">{log.name}</span></p>
@@ -3395,7 +3402,7 @@ export default function Attendance() {
                 </div>
 
                 {/* Punch Time Details */}
-                <div className="border border-slate-200 rounded-lg overflow-hidden font-sans text-xs mb-4">
+                <div data-section="att-card-punches" className="border border-slate-200 rounded-lg overflow-hidden font-sans text-xs mb-4">
                   <table className="w-full text-left">
                     <thead className="bg-[#212c46] text-white">
                       <tr>
@@ -3432,7 +3439,7 @@ export default function Attendance() {
                 </div>
 
                 {/* Audit metrics */}
-                <div className="grid grid-cols-2 gap-4 text-[10px] mb-6 font-sans">
+                <div data-section="att-card-compliance" className="grid grid-cols-2 gap-4 text-[10px] mb-6 font-sans">
                   <div className="border border-slate-200 rounded-lg p-3">
                     <h4 className="font-black text-slate-700 border-b pb-1 mb-2">SYSTEM ANALYTICAL COMPLIANCE</h4>
                     <ul className="space-y-1">
@@ -3447,7 +3454,7 @@ export default function Attendance() {
                 </div>
 
                 {/* Signatures */}
-                <div className="grid grid-cols-2 gap-8 text-[9px] text-slate-400 pt-8 mt-4 border-t border-dashed font-sans">
+                <div data-section="att-card-signatures" className="grid grid-cols-2 gap-8 text-[9px] text-slate-400 pt-8 mt-4 border-t border-dashed font-sans">
                   <div className="text-center">
                     <div className="h-8 border-b border-slate-200"></div>
                     <p className="mt-1 font-bold uppercase">Department Head Signature / หน้าหน้าฝ่ายผู้ตรวจสอบ</p>

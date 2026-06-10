@@ -112,7 +112,21 @@ export default function Layout() {
       }
       
       // Dispatch a custom event so components can react to watermark state changes if needed
-      window.dispatchEvent(new CustomEvent('watermark-state-changed', { detail: { isActive: shouldEnable } }));
+      window.dispatchEvent(new CustomEvent('watermark-state-changed', { detail: { isActive: shouldEnable, text: 'CONFIDENTIAL' } }));
+    };
+
+    // Expose the global setPrintWatermark function requested
+    (window as any).setPrintWatermark = (text: string) => {
+      const body = document.body;
+      if (text && text !== 'NONE') {
+        body.classList.add('has-print-watermark');
+        body.setAttribute('data-print-watermark', text);
+      } else {
+        body.classList.remove('has-print-watermark');
+        body.removeAttribute('data-print-watermark');
+      }
+      // Dispatch a custom event so components can react to watermark state changes if needed
+      window.dispatchEvent(new CustomEvent('watermark-state-changed', { detail: { isActive: !!text && text !== 'NONE', text } }));
     };
 
     const handleUpdate = () => {

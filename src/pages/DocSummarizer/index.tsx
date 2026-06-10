@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as Icons from 'lucide-react';
+import Swal from 'sweetalert2';
 import {
   ResponsiveContainer,
   BarChart,
@@ -92,6 +93,123 @@ export default function DocSummarizer() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<SummaryResult | null>(null);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  const exportToCSV = () => {
+    if (!result) return;
+    try {
+      const rows = [
+        ['Category', 'Insight/Detail'],
+        ['Document Title', result.title],
+        ...result.keyTakeaways.map(t => ['Key Takeaway', t]),
+        ...result.risks.map(r => ['Risks & Compliance Check', r]),
+        ...result.actionItems.map(a => ['Recommended Action Item', a])
+      ];
+
+      // Safe character set encoding for Thai/Unicode strings
+      const csvContent = "\uFEFF" + rows.map(e => e.map(val => `"${val.replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `SMART_HR_AI_Summary_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      Swal.fire({
+        title: 'CSV Export Successful!',
+        text: 'Document summary exported as CSV.',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false
+      });
+    } catch (err) {
+      console.error('CSV export failed:', err);
+    }
+  };
+
+  const exportToPDF = () => {
+    if (!result) return;
+    
+    const formattedTakeaways = result.keyTakeaways.map(t => `
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 12px; font-family: 'Inter', 'Noto Sans Thai', sans-serif;">
+        &bull; ${t}
+      </div>
+    `).join('');
+
+    const formattedRisks = result.risks.map(r => `
+      <div style="background-color: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 12px; color: #991b1b; font-weight: bold; font-family: 'Inter', 'Noto Sans Thai', sans-serif;">
+        ⚠️ ${r}
+      </div>
+    `).join('');
+
+    const formattedActions = result.actionItems.map(a => `
+      <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 12px; color: #166534; font-family: 'Inter', 'Noto Sans Thai', sans-serif;">
+        ✔ ${a}
+      </div>
+    `).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${result.title}</title>
+          <style>
+            body { font-family: 'Inter', 'Noto Sans Thai', sans-serif; padding: 40px; color: #1e293b; background-color: #ffffff; }
+            .header { display: flex; align-items: center; border-bottom: 3px double #212c46; padding-bottom: 20px; margin-bottom: 30px; }
+            .logo { width: 50px; height: 50px; border-radius: 5px; }
+            .header-text { margin-left: 20px; flex-grow: 1; }
+            .header-text h1 { font-size: 18px; font-weight: 950; margin: 0; color: #212c46; text-transform: uppercase; letter-spacing: 0.05em; }
+            .header-text p { font-size: 10px; margin: 4px 0 0 0; color: #b58c4f; font-weight: bold; letter-spacing: 0.1em; }
+            .section-title { font-size: 12px; font-weight: 900; text-transform: uppercase; color: #212c46; border-left: 4px solid #b58c4f; padding-left: 8px; margin-top: 30px; margin-bottom: 15px; letter-spacing: 0.05em; }
+            .meta-info { display: flex; justify-content: space-between; font-size: 10px; color: #64748b; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=200" class="logo" />
+            <div class="header-text">
+              <h1>${result.title}</h1>
+              <p>บริษัท ที ออลล์ อินเทลลิเจนซ์ จำกัด / 46 หมู่ที่ 5 ตำบลคลองสี่ อำเภอคลองหลวง จังหวัดปทุมธานี 12120</p>
+            </div>
+          </div>
+          <div class="meta-info">
+            <div>Export Date: ${new Date().toISOString().substring(0, 10)} ${new Date().toLocaleTimeString()}</div>
+            <div>Classification: CONFIDENTIAL &bull; INTERNAL STAFF RUNTIME</div>
+          </div>
+
+          <div class="section-title">I. Key Takeaways</div>
+          ${formattedTakeaways}
+
+          <div class="section-title">II. Risks & Compliance Controls</div>
+          ${formattedRisks}
+
+          <div class="section-title">III. Recommended Action Items</div>
+          ${formattedActions}
+
+          <div style="margin-top: 50px; border-top: 1px solid #cbd5e1; padding-top: 15px; font-size: 9px; text-align: center; color: #94a3b8;">
+            Document synthesized programmatically by SMART-HR AI Services.
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 400);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      alert('Pop-up blocker is preventing document export. Please allow popups.');
+      return;
+    }
+    printWin.document.write(htmlContent);
+    printWin.document.close();
+  };
 
   const handleSummarize = () => {
     if (!inputText.trim()) return;
@@ -237,9 +355,24 @@ export default function DocSummarizer() {
                         <p className="text-[#b7a159] text-[9px] font-black uppercase tracking-widest">Document Digest Result</p>
                       </div>
                    </div>
-                   <button className="p-2 text-white/50 hover:bg-white/10 rounded-lg transition-colors">
-                      <Icons.Download size={20} />
-                   </button>
+                    <div className="flex items-center gap-1.5 no-print">
+                      <button 
+                        onClick={exportToCSV}
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white border border-[#414757] rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer"
+                        title="Download CSV report"
+                      >
+                        <Icons.Download size={11} className="text-[#b7a159]" />
+                        CSV
+                      </button>
+                      <button 
+                        onClick={exportToPDF}
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-[#b58c4f] hover:bg-[#b7a159] text-white border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer"
+                        title="Print PDF dossier"
+                      >
+                        <Icons.Printer size={11} />
+                        PDF
+                      </button>
+                    </div>
                 </div>
 
                 <div className="space-y-6">

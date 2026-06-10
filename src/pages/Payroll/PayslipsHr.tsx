@@ -10,6 +10,7 @@ import {
   Check, FileDown, Plus, Banknote, Landmark, ShieldCheck
 } from 'lucide-react';
 import { DraggableModal } from '../../components/shared/DraggableModal';
+import { PrintPreviewModal } from '../../components/shared/PrintPreviewModal';
 
 const THEME = {
   bgMain: 'transparent',
@@ -336,6 +337,7 @@ export default function PayslipsHr() {
   // Modal states
   const [editModal, setEditModal] = useState<any>({ isOpen: false, employee: null });
   const [viewModal, setViewModal] = useState<any>({ isOpen: false, employee: null });
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   // Settings tab configurations
   const [settings, setSettings] = useState({
@@ -418,16 +420,10 @@ export default function PayslipsHr() {
               </div>
               <div className="flex items-center gap-3">
                 <button 
-                  onClick={() => window.print()} 
-                  className="px-4 py-2 border border-slate-600 hover:border-white text-[11px] font-black uppercase rounded-lg tracking-widest flex items-center gap-1.5 transition-colors cursor-pointer bg-transparent text-gray-300 hover:text-white"
+                  onClick={() => setIsPrintModalOpen(true)} 
+                  className="px-4 py-2 bg-[#b58c4f] hover:bg-slate-700 text-white hover:text-white text-[11px] font-black uppercase rounded-lg tracking-widest flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
                 >
-                  <Printer size={14} /> PRINT
-                </button>
-                <button 
-                  onClick={() => alert("Downloading PDF representation...")} 
-                  className="px-4 py-2 bg-[#b58c4f] hover:bg-[#a94228] text-white hover:text-white text-[11px] font-black uppercase rounded-lg tracking-widest flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
-                >
-                  <Download size={14} /> DOWNLOAD PDF
+                  <Printer size={14} /> PRINT PREVIEW & CONFIG
                 </button>
                 <div className="w-[1px] h-6 bg-slate-700 mx-1"></div>
                 <button 
@@ -443,10 +439,10 @@ export default function PayslipsHr() {
             <div className="bg-[#2c374e] p-6 md:p-10 flex justify-center items-start overflow-y-auto max-h-[calc(92vh-74px)] custom-scrollbar flex-1 w-full relative">
               
               {/* White paper sheet containing the printed slip */}
-              <div className="bg-white text-[#2f2926] rounded-sm shadow-2xl p-8 md:p-12 max-w-3xl w-full flex flex-col font-sans relative z-10 border border-white">
+              <div id="hr-payslip-print-sheet" className="bg-white text-[#2f2926] rounded-sm shadow-2xl p-8 md:p-12 max-w-3xl w-full flex flex-col font-sans relative z-10 border border-white">
                 
                 {/* Salary slip header info */}
-                <div className="flex flex-col md:flex-row justify-between items-start gap-4 border-b-2 border-[#212c46] pb-5 mb-5">
+                <div id="slip-header" className="flex flex-col md:flex-row justify-between items-start gap-4 border-b-2 border-[#212c46] pb-5 mb-5">
                   <div className="flex flex-col text-left">
                     <h4 className="text-[16px] md:text-[18px] font-black text-[#212c46] uppercase leading-tight mb-1 font-mono tracking-tight">T All Intelligence Co., Ltd.</h4>
                     <p className="text-[10px] text-[#7a8b95] font-black uppercase tracking-wider mb-2 leading-none">บริษัท ที ออลล์ อินเทลลิเจนซ์ จำกัด</p>
@@ -464,7 +460,7 @@ export default function PayslipsHr() {
                 </div>
 
                 {/* Grid container with Employee detailed segments */}
-                <div className="border border-slate-200 rounded-xl p-4 md:p-5 bg-[#fafcfd]/60 grid grid-cols-1 md:grid-cols-2 gap-y-3.5 gap-x-6 text-[11px] font-mono mb-6 shadow-xs leading-none">
+                <div id="slip-employee" className="border border-slate-200 rounded-xl p-4 md:p-5 bg-[#fafcfd]/60 grid grid-cols-1 md:grid-cols-2 gap-y-3.5 gap-x-6 text-[11px] font-mono mb-6 shadow-xs leading-none">
                   <div className="md:border-r border-dashed border-slate-200 md:pr-6 space-y-3">
                     <div className="flex justify-between border-b border-dashed border-slate-100 pb-2">
                       <span className="text-slate-400 font-extrabold uppercase text-[10px]">EMPLOYEE NAME:</span>
@@ -499,7 +495,7 @@ export default function PayslipsHr() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                   
                   {/* Earnings Table */}
-                  <div className="border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-between bg-white shadow-xs">
+                  <div id="slip-earnings" className="border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-between bg-white shadow-xs">
                     <div className="bg-[#508660]/10 px-4 py-2.5 flex items-center justify-between border-b border-[#508660]/20 text-[#508660] font-black uppercase tracking-widest text-[11px] leading-tight">
                       <div className="flex items-center gap-2">
                         <TrendingUp size={14} className="shrink-0 text-[#508660]" />
@@ -535,7 +531,7 @@ export default function PayslipsHr() {
                   </div>
 
                   {/* Deductions Table */}
-                  <div className="border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-between bg-white shadow-xs">
+                  <div id="slip-deductions" className="border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-between bg-white shadow-xs">
                     <div className="bg-[#932c2e]/10 px-4 py-2.5 flex items-center justify-between border-b border-[#932c2e]/20 text-[#932c2e] font-black uppercase tracking-widest text-[11px] leading-tight">
                       <div className="flex items-center gap-2">
                         <TrendingDown size={14} className="shrink-0 text-[#932c2e]" />
@@ -573,7 +569,7 @@ export default function PayslipsHr() {
                 </div>
 
                 {/* Net Pay Dark Bar Block */}
-                <div className="bg-[#212c46] text-white p-5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3.5 shadow-md">
+                <div id="slip-netpay" className="bg-[#212c46] text-white p-5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3.5 shadow-md">
                   <div className="flex flex-col leading-tight">
                     <span className="font-mono text-[11px] text-gray-300 tracking-widest font-black uppercase">NET PAY TRANSFER / เงินเดืนรับสุทธิ</span>
                     <span className="text-[9px] text-[#4d87a8] mt-1.5 uppercase font-bold tracking-wider">AMOUNT TRANSFERRED TO YOUR REGISTERED ACCOUNT</span>
@@ -590,7 +586,7 @@ export default function PayslipsHr() {
                 </div>
 
                 {/* Signature Block representing authentic slips */}
-                <div className="grid grid-cols-2 gap-12 border-t border-slate-200/80 pt-8 mt-10 text-[11px] font-mono select-none">
+                <div id="slip-signatures" className="grid grid-cols-2 gap-12 border-t border-slate-200/80 pt-8 mt-10 text-[11px] font-mono select-none">
                   <div className="text-center flex flex-col items-center">
                     <div className="h-8 border-b border-dashed border-slate-300 w-44"></div>
                     <span className="text-[#7a8b95] font-black uppercase tracking-wider mt-2.5">Authorized Signature</span>
@@ -609,6 +605,24 @@ export default function PayslipsHr() {
           </div>
         </div>,
         document.body
+      )}
+
+      {viewModal.isOpen && viewModal.employee && (
+        <PrintPreviewModal
+          isOpen={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          title={`Payslip Report - ${viewModal.employee.name} (${payrollPeriod})`}
+          documentId={`CSE-PAY-${viewModal.employee.employeeId}-${payrollPeriod.replace('-', '')}`}
+          contentId="hr-payslip-print-sheet"
+          sections={[
+            { id: 'slip-header', label: 'Company Header & Address (หัวกระดาษบริษัท)' },
+            { id: 'slip-employee', label: 'Employee Profile Details (ข้อมูลพนักงาน)' },
+            { id: 'slip-earnings', label: 'Earnings Table (ตารางรายได้)' },
+            { id: 'slip-deductions', label: 'Deductions Table (ตารางรายการหัก)' },
+            { id: 'slip-netpay', label: 'Net Salary Summary Block (กล่องยอดรับสุทธิ)' },
+            { id: 'slip-signatures', label: 'Signature Block & Sign-off Lines (ลายมือชื่อผู้รับ/ผู้จ่าย)' },
+          ]}
+        />
       )}
 
       {/* HEADER SECTION - Placed transparently on the main page */}

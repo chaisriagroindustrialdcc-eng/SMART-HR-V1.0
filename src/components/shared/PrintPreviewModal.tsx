@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { DraggableModal } from './DraggableModal';
-import { Printer, Eye, Info, RefreshCw, Layers, ShieldCheck, Download } from 'lucide-react';
+import { Printer, Eye, Info, RefreshCw, Layers, ShieldCheck, Download, Sliders } from 'lucide-react';
+
+interface PrintSection {
+  id: string;
+  label: string;
+  defaultVisible?: boolean;
+}
 
 interface PrintPreviewModalProps {
   isOpen: boolean;
@@ -9,7 +15,8 @@ interface PrintPreviewModalProps {
   documentId?: string;
   contentId?: string; // HTML element ID to grab content from
   children?: React.ReactNode; // Or direct React children to render inside paper
-  defaultWatermark?: 'CONFIDENTIAL' | 'DRAFT' | 'OFFICIAL' | 'NONE';
+  defaultWatermark?: 'CONFIDENTIAL' | 'DRAFT' | 'OFFICIAL' | 'NONE' | 'CUSTOM';
+  sections?: PrintSection[];
 }
 
 export function PrintPreviewModal({
@@ -19,11 +26,32 @@ export function PrintPreviewModal({
   documentId = 'TAI-REP-8888',
   contentId,
   children,
-  defaultWatermark = 'CONFIDENTIAL'
+  defaultWatermark = 'CONFIDENTIAL',
+  sections
 }: PrintPreviewModalProps) {
-  const [watermark, setWatermark] = useState<'CONFIDENTIAL' | 'DRAFT' | 'OFFICIAL' | 'NONE'>(defaultWatermark);
+  const [watermark, setWatermark] = useState<'CONFIDENTIAL' | 'DRAFT' | 'OFFICIAL' | 'NONE' | 'CUSTOM'>(defaultWatermark);
+  const [customWatermarkText, setCustomWatermarkText] = useState<string>('VERIFIED KEY');
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  const [pageSize, setPageSize] = useState<'A4' | 'LETTER' | 'LEGAL'>('A4');
+  const [sectionVisibility, setSectionVisibility] = useState<Record<string, boolean>>({});
   const [clonedHtml, setClonedHtml] = useState<string>('');
   const [isPdfDownloading, setIsPdfDownloading] = useState(false);
+
+  // Initialize section visibility from prop
+  useEffect(() => {
+    if (sections) {
+      const initial: Record<string, boolean> = {};
+      sections.forEach(s => {
+        initial[s.id] = s.defaultVisible !== false;
+      });
+      setSectionVisibility(initial);
+    }
+  }, [sections]);
+
+  // Active watermark based on toggled inputs
+  const activeWatermarkText = watermark === 'NONE'
+    ? ''
+    : (watermark === 'CUSTOM' ? (customWatermarkText || 'CONFIDENTIAL') : watermark);
 
   // When contentId is specified, fetch the HTML content from DOM
   useEffect(() => {
@@ -50,8 +78,8 @@ export function PrintPreviewModal({
 
   const handlePrint = () => {
     // Add watermark class to body before printing
-    if (watermark !== 'NONE') {
-      document.body.setAttribute('data-print-watermark', watermark);
+    if (activeWatermarkText) {
+      document.body.setAttribute('data-print-watermark', activeWatermarkText);
       document.body.classList.add('has-print-watermark');
     } else {
       document.body.removeAttribute('data-print-watermark');
@@ -84,12 +112,12 @@ export function PrintPreviewModal({
         filename:     `${title.replace(/[^a-z0-9ก-๙]/gi, '_') || 'report'}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true, logging: false },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF:        { unit: 'mm', format: pageSize.toLowerCase(), orientation: orientation }
       };
       
       // Temporary apply the watermark attribute if active
-      if (watermark !== 'NONE') {
-        document.body.setAttribute('data-print-watermark', watermark);
+      if (activeWatermarkText) {
+        document.body.setAttribute('data-print-watermark', activeWatermarkText);
         document.body.classList.add('has-print-watermark');
       }
       
@@ -120,6 +148,25 @@ export function PrintPreviewModal({
     }
   };
 
+  const getPaperDimensions = () => {
+    if (pageSize === 'LETTER') {
+      return orientation === 'portrait' 
+        ? { width: '216mm', minHeight: '279mm', maxWidth: '216mm' }
+        : { width: '279mm', minHeight: '216mm', maxWidth: '279mm' };
+    }
+    if (pageSize === 'LEGAL') {
+      return orientation === 'portrait' 
+        ? { width: '216mm', minHeight: '356mm', maxWidth: '216mm' }
+        : { width: '356mm', minHeight: '216mm', maxWidth: '356mm' };
+    }
+    // A4
+    return orientation === 'portrait' 
+      ? { width: '210mm', minHeight: '297mm', maxWidth: '210mm' }
+      : { width: '297mm', minHeight: '210mm', maxWidth: '297mm' };
+  };
+
+  const dimensions = getPaperDimensions();
+
   return (
     <DraggableModal
       isOpen={isOpen}
@@ -134,62 +181,178 @@ export function PrintPreviewModal({
       }
       width="max-w-4xl"
     >
+      {/* Inject print properties dynamically for standard print action */}
+      <style>{`
+        @media print {
+          @page {
+            size: ${pageSize.toLowerCase()} ${orientation};
+            margin: 10mm;
+          }
+        }
+      `}</style>
+
+      {/* Dynamic section visibility stylesheet block */}
+      {sections && (
+        <style dangerouslySetInnerHTML={{ __html: `
+          ${sections
+            .filter(sec => !sectionVisibility[sec.id])
+            .map(sec => `
+              #${sec.id}, .section-${sec.id}, [data-section="${sec.id}"], .section-toggle-${sec.id} {
+                display: none !important;
+              }
+            `).join('\n')
+          }
+        ` }} />
+      )}
+
       <div className="flex-1 overflow-y-auto p-8 bg-[#1f2a44]/5 custom-scrollbar text-[#212c46] flex flex-col items-center">
         
         {/* Controls Bar */}
-        <div className="w-full max-w-[210mm] bg-white border border-slate-200/80 p-4 rounded-2xl mb-5 flex flex-col md:flex-row justify-between items-center gap-4 no-print shadow-sm">
-          <div className="flex flex-col text-left">
-            <span className="text-[7.5px] font-black text-[#7a8b95] uppercase tracking-wider font-mono">
-              Watermark / ตราประทับลายน้ำจำลองเอกสาร
+        <div className="w-full max-w-[210mm] bg-white border border-slate-200/80 p-5 rounded-2xl mb-5 flex flex-col gap-4 no-print shadow-sm">
+          <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+            <Sliders size={14} className="text-[#b58c4f]" />
+            <span className="text-[10px] font-black uppercase text-[#212c46] tracking-widest">
+              Print-Specific Configurations / การกำหนดค่าก่อนพิมพ์
             </span>
-            <div className="flex items-center gap-2 mt-1">
-              <Layers size={14} className="text-[#b58c4f]" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-left">
+            {/* 1. Watermark Type */}
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black text-[#7a8b95] uppercase tracking-wider font-mono">
+                Watermark Type / รูปแบบลายน้ำ
+              </span>
               <select
                 value={watermark}
                 onChange={(e) => setWatermark(e.target.value as any)}
-                className="text-[11px] font-bold text-[#212c46] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#b58c4f] cursor-pointer"
+                className="mt-1.5 text-[11px] font-bold text-[#212c46] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#b58c4f] cursor-pointer"
               >
                 <option value="CONFIDENTIAL">CONFIDENTIAL (ความลับ)</option>
                 <option value="DRAFT">DRAFT (ฉบับร่าง)</option>
                 <option value="OFFICIAL">OFFICIAL (เอกสารหลัก)</option>
+                <option value="CUSTOM">CUSTOM TEXT (พิมพ์เอง)</option>
                 <option value="NONE">NONE (ไม่มีลายน้ำ)</option>
+              </select>
+            </div>
+
+            {/* 2. Custom Watermark Input */}
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black text-[#7a8b95] uppercase tracking-wider font-mono">
+                Custom Watermark Text / ข้อความลายน้ำ
+              </span>
+              <input
+                type="text"
+                value={customWatermarkText}
+                onChange={(e) => setCustomWatermarkText(e.target.value.toUpperCase())}
+                disabled={watermark !== 'CUSTOM'}
+                placeholder="e.g. SECRET COPY"
+                className="mt-1.5 text-[11px] font-bold text-[#212c46] bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#b58c4f]"
+              />
+            </div>
+
+            {/* 3. Orientation */}
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black text-[#7a8b95] uppercase tracking-wider font-mono">
+                Orientation / แนววางหน้ากระดาษ
+              </span>
+              <div className="mt-1.5 flex gap-1 bg-slate-50 p-0.5 border border-slate-200 rounded-lg">
+                <button
+                  onClick={() => setOrientation('portrait')}
+                  className={`flex-1 text-[10px] py-1 font-black rounded uppercase tracking-wider transition-all duration-300 ${orientation === 'portrait' ? 'bg-[#212c46] text-white shadow-xs' : 'text-[#7a8b95] hover:text-[#212c46]'}`}
+                >
+                  Portrait
+                </button>
+                <button
+                  onClick={() => setOrientation('landscape')}
+                  className={`flex-1 text-[10px] py-1 font-black rounded uppercase tracking-wider transition-all duration-300 ${orientation === 'landscape' ? 'bg-[#212c46] text-white shadow-xs' : 'text-[#7a8b95] hover:text-[#212c46]'}`}
+                >
+                  Landscape
+                </button>
+              </div>
+            </div>
+
+            {/* 4. Page Size */}
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black text-[#7a8b95] uppercase tracking-wider font-mono">
+                Paper Size / ขนาดหน้ากระดาษ
+              </span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(e.target.value as any)}
+                className="mt-1.5 text-[11px] font-bold text-[#212c46] bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#b58c4f] cursor-pointer"
+              >
+                <option value="A4">A4 (210 x 297 mm)</option>
+                <option value="LETTER">Letter (8.5 x 11 in)</option>
+                <option value="LEGAL">Legal (8.5 x 14 in)</option>
               </select>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <span className="text-[10px] font-bold text-slate-400 font-mono hidden sm:inline-block">
-              A4 PORTRAIT SIMULATION
+          {/* Optional Sections Checklist */}
+          {sections && sections.length > 0 && (
+            <div className="w-full mt-2 pt-3 border-t border-slate-100 text-left animate-fadeIn">
+              <span className="text-[8px] font-black text-[#7a8b95] uppercase tracking-wider font-mono">
+                Included Report Sections / เลือกหมวดหมู่ข้อมูลที่รวมพิมพ์
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2.5 mt-2">
+                {sections.map(sec => (
+                  <label key={sec.id} className="flex items-center gap-2.5 text-[11px] font-bold text-slate-700 cursor-pointer hover:text-[#212c46] select-none">
+                    <input 
+                      type="checkbox"
+                      checked={!!sectionVisibility[sec.id]}
+                      onChange={(e) => setSectionVisibility(prev => ({
+                        ...prev,
+                        [sec.id]: e.target.checked
+                      }))}
+                      className="w-3.5 h-3.5 rounded text-[#b58c4f] border-slate-300 focus:ring-0 focus:ring-offset-0 accent-[#b58c4f] cursor-pointer"
+                    />
+                    <span>{sec.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-1 pt-3.5 border-t border-slate-100">
+            <span className="text-[9px] font-bold text-slate-400 font-mono">
+              SIMULATED DEVICE RESOLUTION: {pageSize} {orientation.toUpperCase()}
             </span>
-            <button
-              onClick={handleDownloadPDF}
-              disabled={isPdfDownloading}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#4d87a8] hover:bg-[#212c46] disabled:bg-slate-300 text-white transition-all rounded-xl text-[11px] font-black uppercase tracking-widest cursor-pointer shadow-md active:scale-95"
-            >
-              <Download size={14} />
-              {isPdfDownloading ? 'Saving PDF...' : 'Download PDF'}
-            </button>
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-6 py-2.5 bg-[#b58c4f] hover:bg-[#212c46] text-white transition-all rounded-xl text-[11px] font-black uppercase tracking-widest cursor-pointer shadow-md active:scale-95"
-            >
-              <Printer size={14} />
-              Print System
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={handleDownloadPDF}
+                disabled={isPdfDownloading}
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#4d87a8] hover:bg-[#212c46] disabled:bg-slate-300 text-white transition-all rounded-xl text-[11px] font-black uppercase tracking-widest cursor-pointer shadow-md active:scale-95 animate-fadeIn"
+              >
+                <Download size={14} />
+                {isPdfDownloading ? 'Saving PDF...' : 'Download PDF'}
+              </button>
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-6 py-2.5 bg-[#b58c4f] hover:bg-[#212c46] text-white transition-all rounded-xl text-[11px] font-black uppercase tracking-widest cursor-pointer shadow-md active:scale-95 animate-fadeIn"
+              >
+                <Printer size={14} />
+                Print System
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Paper Container Mock (A4 Dimension Simulation standard padding) */}
+        {/* Paper Container Mock (A4/Letter/Legal Dimension Simulation standard padding) */}
         <div
           id="printable-preview-area"
-          className="bg-white p-12 rounded-2xl border border-slate-200 shadow-xl min-h-[297mm] w-full max-w-[210mm] relative flex flex-col justify-between print:shadow-none print:border-none print:p-0 print:m-0"
-          style={{ fontFamily: "'Inter', sans-serif" }}
+          className="bg-white p-12 rounded-2xl border border-slate-200 shadow-xl relative flex flex-col justify-between print:shadow-none print:border-none print:p-0 print:m-0"
+          style={{ 
+            fontFamily: "'Inter', sans-serif",
+            width: dimensions.width,
+            minHeight: dimensions.minHeight,
+            maxWidth: dimensions.maxWidth
+          }}
         >
           {/* On-Screen Watermark Layer */}
-          {watermark !== 'NONE' && (
+          {activeWatermarkText && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden z-[5]">
-              <span className="text-[85px] font-black text-rose-800/[0.03] uppercase tracking-widest font-mono transform rotate-[-45deg] scale-125 whitespace-nowrap select-none">
-                {watermark}
+              <span className="text-[75px] font-black text-rose-800/[0.035] uppercase tracking-widest font-mono transform rotate-[-45deg] scale-125 whitespace-nowrap select-none">
+                {activeWatermarkText}
               </span>
             </div>
           )}
@@ -239,7 +402,7 @@ export function PrintPreviewModal({
               </div>
               <div>
                 <span className="text-[7.5px] font-black text-slate-400 uppercase tracking-widest">CLASSIFICATION</span>
-                <p className="font-extrabold text-[#932c2e] mt-0.5 uppercase tracking-wider">{watermark !== 'NONE' ? watermark : 'CONFIDENTIAL'}</p>
+                <p className="font-extrabold text-[#932c2e] mt-0.5 uppercase tracking-wider">{activeWatermarkText || 'CONFIDENTIAL'}</p>
               </div>
               <div>
                 <span className="text-[7.5px] font-black text-slate-400 uppercase tracking-widest">SECURITY PROTOCOL</span>

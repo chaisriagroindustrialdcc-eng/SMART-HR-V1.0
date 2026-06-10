@@ -475,6 +475,31 @@ html, body, button, input, select, textarea, div, p, span, h1, h2, h3, h4, h5, h
   }
 }
 
+/* ==========================================
+   UNIFORM SYSTEM KPI CARD TYPOGRAPHY CODES
+   ========================================== */
+.sys-kpi-label {
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  color: #64748b !important;
+}
+
+.sys-kpi-value {
+  font-size: 1.875rem !important; /* 3xl */
+  font-weight: 900 !important;
+  letter-spacing: -0.03em !important;
+  line-height: 1.2 !important;
+}
+
+.sys-kpi-desc {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+}
+
+
 /* Custom physical print sheet sizes classes mapping */
 @page a4_pt {
   size: A4 portrait;

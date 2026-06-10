@@ -292,11 +292,11 @@ export default function SystemConfig() {
   });
   const [printCompanyTh, setPrintCompanyTh] = useState<string>(() => {
     const saved = localStorage.getItem('cfg_print_company_th');
-    if (!saved || saved.includes('บริษัท ชัยศรี')) {
-      localStorage.setItem('cfg_print_company_th', '46 Moo 5, Klong 4, Klong Luang, Pathumthani Thailand 12120');
-      return '46 Moo 5, Klong 4, Klong Luang, Pathumthani Thailand 12120';
+    if (!saved || saved.includes('บริษัท ชัยศรี') || saved.includes('46 Moo 5') || saved.includes('Klong 4')) {
+      localStorage.setItem('cfg_print_company_th', 'บริษัท ที ออลล์ อินเทลลิเจนซ์ จำกัด / 46 หมู่ที่ 5 ตำบลคลองสี่ อำเภอคลองหลวง จังหวัดปทุมธานี 12120');
+      return 'บริษัท ที ออลล์ อินเทลลิเจนซ์ จำกัด / 46 หมู่ที่ 5 ตำบลคลองสี่ อำเภอคลองหลวง จังหวัดปทุมธานี 12120';
     }
-    return saved || '46 Moo 5, Klong 4, Klong Luang, Pathumthani Thailand 12120';
+    return saved || 'บริษัท ที ออลล์ อินเทลลิเจนซ์ จำกัด / 46 หมู่ที่ 5 ตำบลคลองสี่ อำเภอคลองหลวง จังหวัดปทุมธานี 12120';
   });
   const [printDept, setPrintDept] = useState<string>(() => {
     return localStorage.getItem('cfg_print_dept') || 'Office of Strategic Human Resources • Corporate Management Suite';
@@ -1017,7 +1017,7 @@ export default function SystemConfig() {
                                                 value={printCompanyEn}
                                                 onChange={(e) => setPrintCompanyEn(e.target.value)}
                                                 className="w-full bg-white border border-[#eaeaec] rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-[#b58c4f] shadow-sm text-[#212c46]"
-                                                placeholder="e.g. CHAISRI AGRO INDUSTRIAL CO., LTD."
+                                                placeholder="e.g. T All Intelligence Co., Ltd."
                                                 required
                                             />
                                         </div>
@@ -1031,7 +1031,7 @@ export default function SystemConfig() {
                                                 value={printCompanyTh}
                                                 onChange={(e) => setPrintCompanyTh(e.target.value)}
                                                 className="w-full bg-white border border-[#eaeaec] rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-[#b58c4f] shadow-sm text-[#212c46]"
-                                                placeholder="e.g. บริษัท ชัยศรี แปรรูปเกษตรอุตสาหกรรม จำกัด"
+                                                placeholder="e.g. บริษัท ที ออลล์ อินเทลลิเจนซ์ จำกัด / 46 หมู่ที่ 5 ตำบลคลองสี่ อำเภอคลองหลวง จังหวัดปทุมธานี 12120"
                                                 required
                                             />
                                         </div>
@@ -1271,10 +1271,10 @@ export default function SystemConfig() {
                                                         </div>
                                                         <div className="flex flex-col">
                                                             <h1 className="text-[11px] font-black tracking-tight leading-none uppercase text-slate-900 font-sans font-bold">
-                                                                {printCompanyEn || 'CHAISRI AGRO INDUSTRIAL CO., LTD.'}
+                                                                {printCompanyEn || 'T All Intelligence Co., Ltd.'}
                                                             </h1>
                                                             <h2 className="text-[8px] font-extrabold tracking-wide uppercase mt-0.5 text-slate-700 leading-none">
-                                                                {printCompanyTh || 'บริษัท ชัยศรี แปรรูปเกษตรอุตสาหกรรม จำกัด'}
+                                                                {printCompanyTh || 'บริษัท ที ออลล์ อินเทลลิเจนซ์ จำกัด / 46 หมู่ที่ 5 ตำบลคลองสี่ อำเภอคลองหลวง จังหวัดปทุมธานี 12120'}
                                                             </h2>
                                                             <span className="text-[7px] font-bold text-slate-500 uppercase tracking-widest mt-0.5 font-technical">
                                                                 {printDept || 'Office of Strategic Human Resources • Corporate Management Suite'}
