@@ -9,6 +9,7 @@ interface PrintableReportProps extends React.HTMLAttributes<HTMLDivElement> {
   companyAddress?: string;
   taxId?: string;
   showFooter?: boolean;
+  className?: string;
 }
 
 export function PrintableReport({

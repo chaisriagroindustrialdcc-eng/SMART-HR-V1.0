@@ -177,16 +177,16 @@ export default function PublicSeminar() {
   };
 
   return (
-    <div className="flex-1 p-6 bg-[#f3f3f1] font-sans text-left min-h-screen">
+    <div className="flex-1 px-4 sm:px-8 py-6 bg-[#f3f3f1] font-sans text-left min-h-screen">
       {/* Header section */}
-      <div className="bg-[#212c46] text-white p-6 rounded-2xl mb-6 shadow-md relative overflow-hidden">
-        <div className="absolute right-[-5%] bottom-[-30%] opacity-10 pointer-events-none transform -rotate-12">
-          <Icons.BookmarkCheck size={180} />
+      <div className="pb-5 mb-5 border-b border-[#eaeaec] relative overflow-hidden">
+        <div className="absolute right-[-5%] bottom-[-30%] opacity-10 pointer-events-none transform -rotate-12 text-[#212c46]">
+          <Icons.BookmarkCheck size={150} />
         </div>
         <div className="relative z-10 text-left">
           <p className="text-[10px] text-[#b58c4f] font-black uppercase tracking-widest leading-none">PROFESSIONAL KNOWLEDGE ACCOMMODATION</p>
-          <h1 className="text-2xl font-black tracking-tight uppercase mt-1">PUBLIC & SEMINAR ENROLLMENT</h1>
-          <p className="text-gray-300 text-[11px] mt-1 uppercase tracking-widest font-bold">
+          <h1 className="text-2xl font-black tracking-tight uppercase mt-1 text-[#212c46]">PUBLIC & SEMINAR ENROLLMENT</h1>
+          <p className="text-[#7a8b95] text-[11px] mt-1 uppercase tracking-widest font-bold">
             customized external courses, professional summits, and national compliance workshops
           </p>
         </div>

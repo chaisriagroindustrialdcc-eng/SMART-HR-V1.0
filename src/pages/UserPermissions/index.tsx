@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import * as Icons from 'lucide-react';
 import { DraggableModal } from '../../components/shared/DraggableModal';
+import { registerHrLog } from '../../utils/hrLogger';
 
 import { SYSTEM_MODULES } from '../../config/modules';
 
@@ -394,6 +395,13 @@ export default function UserPermission() {
   const toggleExpand = (id: string) => setExpandedModules((prev: any) => ({ ...prev, [id]: !prev[id] }));
 
   const saveUserPermissions = (savedUser: any, newPermissions: any) => {
+    // Log configuration action
+    registerHrLog(
+      'User Permission',
+      'PERMISSION_CHANGED',
+      `Updated access capabilities and profile for staff member ${savedUser.name} (${savedUser.position})`
+    );
+
     setUsers(prevUsers => {
       const exists = prevUsers.find(u => u.id === savedUser.id);
       if (exists) {

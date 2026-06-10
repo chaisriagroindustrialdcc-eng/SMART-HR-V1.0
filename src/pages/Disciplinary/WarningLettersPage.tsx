@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { QrVerifier } from '../../components/shared/QrVerifier';
+import { registerHrLog } from '../../utils/hrLogger';
 
 export interface WarningTemplate {
   severity: 'Verbal' | 'Written' | 'Final';
@@ -235,6 +236,13 @@ export default function WarningLettersPage() {
   const activeTemplate = WARNING_TEMPLATES[severity];
 
   const handlePrint = () => {
+    // Audit log tracking
+    registerHrLog(
+      'Disciplinary',
+      'WARNING_LETTER_CREATED',
+      `Created and printed a ${severity} warning letter for employee ${employeeName || 'Unknown'} (${employeeId || 'N/A'}) regarding infraction date ${incidentDate}`
+    );
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       alert('Please allow popups to export the letter to PDF.');

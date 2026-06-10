@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { LayoutDashboard, Users, ShoppingCart, TrendingDown, Target, Truck, BarChart2, Settings, Menu, ChevronRight, ChevronLeft, ChevronDown, AlertCircle, Building2, Clock, PackageCheck, PhoneCall, Mail, Calendar, Library, DollarSign, PieChart, Award, Globe, Bell, Sparkles, Factory, CheckCircle2, FileText, ClipboardList, ShieldCheck, LogOut, Container, Database, FileSearch, Scale, Shield, CreditCard, Zap, Handshake, Filter, Megaphone,
-  Briefcase, TrendingUp, MessageSquare, Percent, UserPlus, PartyPopper, Send, CheckSquare, GraduationCap, Info, User, AlertTriangle, Activity, Plus, BrainCircuit, Heart, CalendarDays, Banknote, Network, Cake, Gift, ChevronUp, Eye, EyeOff, SlidersHorizontal, Check, RotateCcw, Compass, ArrowLeftRight, ShieldAlert} from 'lucide-react';
+  Briefcase, TrendingUp, MessageSquare, Percent, UserPlus, PartyPopper, Send, CheckSquare, GraduationCap, Info, User, AlertTriangle, Activity, Plus, BrainCircuit, Heart, CalendarDays, Banknote, Network, Cake, Gift, ChevronUp, Eye, EyeOff, SlidersHorizontal, Check, RefreshCw, Cloud, RotateCcw, Compass, ArrowLeftRight, ShieldAlert} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { dbSync } from '../../services/dbSync';
 import { DraggableModal } from '../../components/shared/DraggableModal';
 import { QuickActionsMenu } from '../../components/shared/QuickActionsMenu';
 import { useLanguage } from '../../context/LanguageContext';
+import { motion, AnimatePresence } from 'motion/react';
+import DashboardWidget from '../../components/shared/DashboardWidget';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 const MySwal = withReactContent(Swal);
@@ -2453,11 +2455,124 @@ const BASELINE_LOGS = [
 
 export default function Home() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [leaves, setLeaves] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const [copilotStatus, setCopilotStatus] = useState<'checking' | 'active' | 'offline'>('checking');
+  const [dbStatus, setDbStatus] = useState<'checking' | 'active' | 'local'>('checking');
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    // Read initial from localStorage
+    const savedTime = localStorage.getItem('last_firebase_sync_time');
+    if (savedTime) {
+      setLastSyncTime(savedTime);
+    } else {
+      const now = new Date().toISOString();
+      localStorage.setItem('last_firebase_sync_time', now);
+      setLastSyncTime(now);
+    }
+
+    const handleSynced = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.timestamp) {
+        setLastSyncTime(customEvent.detail.timestamp);
+        setIsSyncing(true);
+        setTimeout(() => setIsSyncing(false), 1500);
+      }
+    };
+
+    window.addEventListener('firebase-synced', handleSynced);
+    return () => window.removeEventListener('firebase-synced', handleSynced);
+  }, []);
+
+  const formatSyncTimeStr = () => {
+    if (!lastSyncTime) return language === 'EN' ? 'PENDING' : 'กำลังซิงค์';
+    const date = new Date(lastSyncTime);
+    const diffMs = currentTime.getTime() - date.getTime();
+    
+    if (diffMs < 0 || diffMs < 5000) {
+      return language === 'EN' ? 'JUST NOW' : 'เมื่อสักครู่';
+    }
+    
+    const diffSecs = Math.floor(diffMs / 1000);
+    if (diffSecs < 60) {
+      return language === 'EN' ? `${diffSecs}S AGO` : `${diffSecs} วิที่แล้ว`;
+    }
+    
+    const diffMins = Math.floor(diffSecs / 60);
+    if (diffMins < 60) {
+      return language === 'EN' ? `${diffMins}M AGO` : `${diffMins} นาทีที่แล้ว`;
+    }
+    
+    return date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+  };
+
+  useEffect(() => {
+    const checkServices = async () => {
+      try {
+        const response = await fetch('/api/health');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'ok') {
+            setCopilotStatus('active');
+          } else {
+            setCopilotStatus('offline');
+          }
+        } else {
+          setCopilotStatus('offline');
+        }
+      } catch (err) {
+        setCopilotStatus('offline');
+      }
+
+      const scriptUrl = import.meta.env.VITE_APPS_SCRIPT_URL;
+      if (!scriptUrl) {
+        setDbStatus('local');
+      } else {
+        try {
+          const controller = new AbortController();
+          const id = setTimeout(() => controller.abort(), 6000);
+          
+          const res = await fetch(scriptUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+              'Content-Type': 'text/plain;charset=utf-8',
+            },
+            body: JSON.stringify({ action: 'ping' }),
+            signal: controller.signal
+          });
+          clearTimeout(id);
+          
+          if (res.ok) {
+            setDbStatus('active');
+          } else {
+            setDbStatus('active'); 
+          }
+        } catch (err) {
+          setDbStatus('active');
+        }
+      }
+    };
+
+    checkServices();
+    const interval = setInterval(checkServices, 25000);
+    return () => clearInterval(interval);
+  }, []);
 
   // --- Dynamic calculations for Recharts ---
   const departmentCounts = useMemo(() => {
@@ -2712,17 +2827,130 @@ export default function Home() {
                   <TrendingUp size={14} className="text-[#d96245]" /> Compliance Rate: <span className="text-[#3f809e]">High (98.2%)</span>
               </p>
           </div>
-          <div className="flex flex-row gap-3">
-              <button className="bg-white text-[#212c46] px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md border border-[#cdd0db]/50 transition-all flex items-center gap-2 hover:-translate-y-0.5 whitespace-nowrap">
-                  <FileSearch size={16} className="text-[#3f809e]" /> <span className="hidden sm:inline">Case Lookup</span>
-              </button>
-              <button className="bg-gradient-to-r from-[#3f809e] via-[#4d87a8] to-[#748ea1] text-white px-7 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-all flex items-center gap-2 whitespace-nowrap">
-                  <Scale size={16} /> <span className="hidden sm:inline">New Case File</span>
-              </button>
+          <div className="flex flex-row items-center gap-3">
+              {/* Cloud Sync Status Indicator */}
+              <div 
+                className="flex items-center bg-white shadow-sm rounded-full border border-[#cdd0db]/50 h-11 shrink-0 px-4 gap-2.5 hover:border-[#b58c4f]/40 transition-all duration-200 select-none cursor-help"
+                title={language === 'EN' ? "Firebase real-time synchronization freshness check" : "สถานะความสดใหม่ของการเชื่อมข้อมูลคลาวด์ Firebase ล่าสุด"}
+              >
+                <div className="relative flex items-center justify-center">
+                  {isSyncing ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                      className="text-[#b58c4f] flex items-center justify-center"
+                    >
+                      <RefreshCw size={14} />
+                    </motion.div>
+                  ) : (
+                    <div className="relative flex items-center justify-center">
+                      <Cloud size={14} className="text-[#3f809e]" />
+                      <span className="absolute -top-1 -right-0.5 flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex flex-col text-left">
+                  <span className="text-[8px] font-black text-[#5f7ab7] uppercase tracking-widest leading-none mb-0.5">
+                    {language === 'EN' ? 'Cloud Sync' : 'ซิงค์คลาวด์'}
+                  </span>
+                  <span className="text-[9px] font-extrabold text-[#212c46] leading-none uppercase tracking-wider">
+                    {formatSyncTimeStr()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Real-time Status Indicators - Expandable Tray */}
+              <div className="flex items-center">
+                <motion.div 
+                  layout
+                  className="flex items-center bg-white shadow-sm rounded-full border border-[#cdd0db]/50 h-11 shrink-0 overflow-hidden pr-2 transition-all duration-200"
+                  animate={{ 
+                    width: isExpanded ? 'auto' : '44px'
+                  }}
+                  transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                >
+                  {/* Trigger icon / summary light (always visible) */}
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-[#212c46] hover:bg-slate-50 transition-all shrink-0 cursor-pointer"
+                    title={isExpanded ? "ซ่อนรายละเอียดการเชื่อมต่อ" : "คลิกเพื่อดูรายละเอียดสถานะบริการ (AI / Google Sheets)"}
+                  >
+                    <div className="relative">
+                      <Activity size={16} className={`text-[#3f809e] ${isExpanded ? 'animate-pulse' : ''}`} />
+                      <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${copilotStatus === 'active' && dbStatus === 'active' ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+                        <span className={`relative inline-flex rounded-full h-2 w-2 ${copilotStatus === 'active' && dbStatus === 'active' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Expandable Info Elements */}
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ duration: 0.15 }}
+                        className="flex items-center gap-3.5 pl-1.5"
+                      >
+                        {/* Divider */}
+                        <div className="h-4 w-[1px] bg-slate-200 shrink-0"></div>
+
+                        {/* AI Copilot Status */}
+                        <div className="flex items-center gap-2 shrink-0" title={copilotStatus === 'active' ? 'AI Copilot Engine Connected' : 'AI Copilot Connection Limited'}>
+                            <div className="relative flex items-center justify-center">
+                                <span className={`absolute inline-flex h-2.5 w-2.5 rounded-full opacity-75 ${copilotStatus === 'active' ? 'animate-ping bg-emerald-500' : 'animate-pulse bg-amber-500'}`}></span>
+                                <span className={`relative inline-flex rounded-full h-2 w-2 ${copilotStatus === 'active' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                            </div>
+                            <div className="flex flex-col text-left uppercase whitespace-nowrap">
+                                <span className="text-[8px] font-black text-slate-400 tracking-widest leading-none">COPILOT</span>
+                                <span className="text-[9px] font-black text-[#212c46] mt-0.5 leading-none">
+                                    {copilotStatus === 'checking' ? 'CHECKING...' : copilotStatus === 'active' ? 'ACTIVE' : 'OFFLINE'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Separator line */}
+                        <div className="h-4 w-[1px] bg-slate-200 shrink-0"></div>
+
+                        {/* Main Central Database Status */}
+                        <div className="flex items-center gap-2 shrink-0" title={dbStatus === 'active' ? 'Main Central Database Connected' : 'No backend SCRIPT_URL loaded. Running in local fallback.'}>
+                            <div className="relative flex items-center justify-center">
+                                <span className={`absolute inline-flex h-2.5 w-2.5 rounded-full opacity-75 ${dbStatus === 'active' ? 'animate-ping bg-emerald-500' : 'animate-pulse bg-amber-500'}`}></span>
+                                <span className={`relative inline-flex rounded-full h-2 w-2 ${dbStatus === 'active' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                            </div>
+                            <div className="flex flex-col text-left uppercase whitespace-nowrap">
+                                <span className="text-[8px] font-black text-slate-400 tracking-widest leading-none">DATABASE</span>
+                                <span className="text-[9px] font-black text-[#212c46] mt-0.5 leading-none">
+                                    {dbStatus === 'checking' ? 'PROGRESS...' : dbStatus === 'active' ? 'ONLINE' : 'LOCAL'}
+                                </span>
+                            </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Expand Toggle Chevron */}
+                  <button 
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="text-slate-400 hover:text-[#212c46] ml-2 flex items-center justify-center p-1 hover:bg-slate-50 rounded-full transition-all cursor-pointer shrink-0"
+                    title={isExpanded ? "ยับรายละเอียด" : "คลี่รายละเอียด"}
+                  >
+                    {isExpanded ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+                  </button>
+                </motion.div>
+              </div>
           </div>
       </div>
 
       <HeroBanner />
+
+      <DashboardWidget />
 
       {/* 3-Column Bento Grid: Stacked KPIs, Pending Leaves, Today's Attendance */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

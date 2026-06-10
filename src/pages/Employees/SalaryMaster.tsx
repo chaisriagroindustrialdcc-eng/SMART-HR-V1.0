@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { DraggableModal } from '../../components/shared/DraggableModal';
 import { dbSync } from '../../services/dbSync';
+import { registerHrLog } from '../../utils/hrLogger';
 
 const THEME = {
   primary: '#851c24', 
@@ -645,6 +646,14 @@ export default function SalaryMaster() {
         const updatedRecords = records.map(r => r.id === updatedData.id ? updatedData : r);
         setRecords(updatedRecords);
         await dbSync.update('salary_master', [updatedData]);
+        
+        // Log key HR action
+        registerHrLog(
+          'Payroll',
+          'SALARY_UPDATE',
+          `Updated salary baseline for employee ${updatedData.nameEn || updatedData.nameTh || 'Staff'} (ID: ${updatedData.empId || updatedData.id}) - New Base: THB ${Number(updatedData.baseSalary || 0).toLocaleString()}`
+        );
+
         setToast('Master Data updated successfully.');
         setTimeout(() => setToast(null), 3000);
       } catch (err) {
