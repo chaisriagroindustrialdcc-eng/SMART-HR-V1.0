@@ -4,6 +4,8 @@ import { SchemaAwareDataService } from '../../services/schemaAwareDataService';
 import { DraggableModal } from '../../components/shared/DraggableModal';
 import KpiCard from '../../components/shared/KpiCard';
 import { useLanguage } from '../../context/LanguageContext';
+import { PrintPreviewModal } from '../../components/shared/PrintPreviewModal';
+import { PrintableReport } from '../../components/shared/PrintableReport';
 import { registerPrintLog } from '../../utils/printLogger';
 import Swal from 'sweetalert2';
 
@@ -76,6 +78,7 @@ export default function PublicSeminar() {
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
   const [currentSeminar, setCurrentSeminar] = useState<Partial<PublicSeminar>>({});
   const [isEditing, setIsEditing] = useState(false);
 
@@ -173,13 +176,13 @@ export default function PublicSeminar() {
   // Register print logging for audits
   const triggerPrintLogging = () => {
     registerPrintLog('Public Seminars Directory');
-    window.print();
+    setIsPrintOpen(true);
   };
 
   return (
     <div className="flex-1 px-4 sm:px-8 py-6 bg-[#f3f3f1] font-sans text-left min-h-screen">
       {/* Header section */}
-      <div className="pb-5 mb-5 border-b border-[#eaeaec] relative overflow-hidden">
+      <div className="pb-5 mb-5 relative overflow-hidden">
         <div className="absolute right-[-5%] bottom-[-30%] opacity-10 pointer-events-none transform -rotate-12 text-[#212c46]">
           <Icons.BookmarkCheck size={150} />
         </div>
@@ -224,62 +227,65 @@ export default function PublicSeminar() {
         />
       </div>
 
-      {/* Control Panel */}
-      <div className="bg-white p-4 rounded-xl border border-gray-100 flex flex-col md:flex-row gap-3 justify-between items-center mb-6">
-        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-          {/* Search */}
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search courses, employee, or organizer..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full md:w-80 pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none"
-            />
-            <Icons.Search size={14} className="absolute left-3 top-3 text-slate-400" />
+      {/* Main Table with Integrated Control Panel */}
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm" id="public-seminar-integrated-registry">
+        {/* Unified Tool and Filter Header */}
+        <div className="p-4 bg-slate-50/80 border-b border-slate-100 flex flex-col xl:flex-row gap-4 items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto items-center">
+            <span className="text-[#212c46] font-black text-xs uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1.5 font-sans">
+              <Icons.Award size={14} className="text-[#3f809e]" /> Seminar Registry ({filteredSeminars.length})
+            </span>
+            {/* Search */}
+            <div className="relative w-full sm:w-72">
+              <input
+                type="text"
+                placeholder="Search courses, employee, or organizer..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#212c46]/10 focus:border-[#212c46] bg-white"
+              />
+              <Icons.Search size={14} className="absolute left-3 top-3 text-slate-400" />
+            </div>
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full sm:w-44 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-[#212c46]"
+            >
+              <option value="All">All statuses</option>
+              <option value="Pending Approval">Pending Approval</option>
+              <option value="Approved">Approved</option>
+              <option value="Attended">Attended</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
           </div>
 
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-gray-200 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 bg-white"
-          >
-            <option value="All">All statuses</option>
-            <option value="Pending Approval">Pending Approval</option>
-            <option value="Approved">Approved</option>
-            <option value="Attended">Attended</option>
-            <option value="Rejected">Rejected</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
+          {/* Unified Actions Bar */}
+          <div className="flex gap-2.5 w-full xl:w-auto justify-end">
+            <button
+              onClick={triggerPrintLogging}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-slate-700 font-extrabold uppercase text-[10px] tracking-widest rounded-xl border border-slate-200/80 hover:bg-slate-50 cursor-pointer shadow-sm active:scale-95 transition-all w-full sm:w-auto justify-center"
+            >
+              <Icons.Printer size={13} className="text-slate-500" />
+              Print Report
+            </button>
+
+            <button
+              onClick={() => {
+                setCurrentSeminar({});
+                setIsEditing(false);
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-[#212c46] text-[#b58c4f] font-extrabold uppercase text-[10px] tracking-widest rounded-xl border border-[#b58c4f]/20 hover:bg-[#b58c4f] hover:text-[#212c46] cursor-pointer shadow-sm active:scale-95 transition-all w-full sm:w-auto justify-center"
+            >
+              <Icons.Plus size={13} />
+              Request Pass
+            </button>
+          </div>
         </div>
 
-        {/* Buttons */}
-        <div className="flex gap-2 w-full md:w-auto justify-end">
-          <button
-            onClick={triggerPrintLogging}
-            className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 text-slate-700 font-extrabold uppercase text-[10px] tracking-widest rounded-lg border border-slate-200 hover:bg-slate-200 cursor-pointer transition-colors"
-          >
-            <Icons.Printer size={13} />
-            Print Report
-          </button>
-
-          <button
-            onClick={() => {
-              setCurrentSeminar({});
-              setIsEditing(false);
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-1 px-3 py-2.5 bg-[#212c46] text-[#b58c4f] font-extrabold uppercase text-[10px] tracking-widest rounded-lg border border-[#b58c4f]/20 hover:bg-[#b58c4f] hover:text-[#212c46] cursor-pointer transition-all shadow-md active:scale-95"
-          >
-            <Icons.Plus size={13} />
-            Request Pass
-          </button>
-        </div>
-      </div>
-
-      {/* Main Table */}
-      <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
@@ -537,6 +543,61 @@ export default function PublicSeminar() {
           </div>
         </form>
       </DraggableModal>
+
+      {/* Fully Functional Print Report Preview Modal */}
+      <PrintPreviewModal
+        isOpen={isPrintOpen}
+        onClose={() => setIsPrintOpen(false)}
+        title="Public & Seminar Enrollment Report"
+        documentId="TAI-PSE-2026-06"
+        defaultWatermark="OFFICIAL"
+      >
+        <PrintableReport
+          title="PUBLIC SEMINAR & SUMMIT ENROLLMENT"
+          subtitle="External course passes, customized summits & compliance training directory"
+          documentId="TAI-PSE-2026-06"
+        >
+          <div className="mt-4">
+            <table className="w-full text-[10px] border-collapse">
+              <thead>
+                <tr className="bg-slate-100 border-b-2 border-slate-300 font-bold text-slate-800 uppercase tracking-wider text-left">
+                  <th className="p-2 border border-slate-300 text-[9px]">ID</th>
+                  <th className="p-2 border border-slate-300 text-[9px]">Course, Topic & Organizer</th>
+                  <th className="p-2 border border-slate-300 text-[9px]">Employee</th>
+                  <th className="p-2 border border-slate-300 text-[9px]">Dept</th>
+                  <th className="p-2 border border-slate-300 text-[9px]">Duration</th>
+                  <th className="p-2 border border-slate-300 text-right text-[9px]">Fee (฿)</th>
+                  <th className="p-2 border border-slate-300 text-center text-[9px]">Approver</th>
+                  <th className="p-2 border border-slate-300 text-center text-[9px]">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredSeminars.map((item) => (
+                  <tr key={item.id} className="text-[9px] hover:bg-slate-50/50">
+                    <td className="p-2 border border-slate-200 font-mono font-bold text-slate-600">{item.id}</td>
+                    <td className="p-2 border border-slate-200">
+                      <div className="font-bold text-slate-900">{item.courseName}</div>
+                      <span className="text-[8px] text-slate-500">🏫 {item.organizer}</span>
+                    </td>
+                    <td className="p-2 border border-slate-200">
+                      <div className="font-bold">{item.employeeName}</div>
+                      <span className="text-[8px] text-slate-400 font-mono">{item.employeeId}</span>
+                    </td>
+                    <td className="p-2 border border-slate-200 font-semibold">{item.department}</td>
+                    <td className="p-2 border border-slate-200">
+                      <div>{item.startDate}</div>
+                      <span className="text-[8px] text-slate-400">to {item.endDate}</span>
+                    </td>
+                    <td className="p-2 border border-slate-200 text-right font-mono font-bold">{item.registrationFee ? item.registrationFee.toLocaleString() : '0'}</td>
+                    <td className="p-2 border border-slate-200 text-center">{item.approver || '—'}</td>
+                    <td className="p-2 border border-slate-200 text-center font-bold">{item.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </PrintableReport>
+      </PrintPreviewModal>
     </div>
   );
 }
