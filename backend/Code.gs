@@ -113,30 +113,12 @@ function doPost(e) {
     }
     
     // Auto-Provisioning: Create sheet and headers if they don't exist
-    // Try to find sheet by name (case-insensitive)
-    let sheet = findSheetCaseInsensitive(ss, sheetName);
-    
-    if (!sheet && sheetName) {
-      sheet = ss.insertSheet(sheetName);
-      let columns = GLOBAL_SHEETS_CONFIG[sheetName];
-      
-      if (!columns) {
-        if (data && Array.isArray(data) && data.length > 0) {
-          columns = Object.keys(data[0]);
-        } else if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-          columns = Object.keys(data);
-        }
-      }
-
-      if (columns && columns.length > 0) {
-        sheet.getRange(1, 1, 1, columns.length).setValues([columns])
-          .setFontWeight("bold")
-          .setBackground("#e8ecef")
-          .setFontColor("black");
-      }
+    let sheet = null;
+    if (sheetName && action !== 'login') {
+      sheet = provisionSheetAndHeaders(ss, sheetName, data);
     }
     
-    if (!sheet && action !== 'login') {
+    if (!sheet && action !== 'login' && action !== 'createSheet' && action !== 'appendRow') {
       return createResponse("error", "Sheet not found and could not be created: " + sheetName, null, headers);
     }
 
@@ -150,6 +132,26 @@ function doPost(e) {
         break;
       case 'login':
         result = handleLogin(ss, data, headers);
+        break;
+      case 'createSheet':
+        const createName = params.sheetName || params.sheet;
+        const createHeaders = params.headers || params.data;
+        sheet = provisionSheetAndHeaders(ss, createName, createHeaders);
+        result = createResponse("success", "Sheet created/verified successfully: " + createName, null, headers);
+        break;
+      case 'appendRow':
+        const appendName = params.sheetName || params.sheet;
+        const appendRowData = params.rowData || params.data;
+        sheet = findSheetCaseInsensitive(ss, appendName);
+        if (!sheet) {
+          sheet = provisionSheetAndHeaders(ss, appendName, appendRowData);
+        }
+        if (Array.isArray(appendRowData)) {
+          sheet.appendRow(appendRowData);
+          result = createResponse("success", "Row appended successfully to: " + appendName, null, headers);
+        } else {
+          result = createResponse("error", "Row data must be an array for appendRow", null, headers);
+        }
         break;
       case 'write':
       case 'update':
@@ -255,14 +257,11 @@ function writeData(sheet, data, headersObj) {
   if (!Array.isArray(data)) data = [data];
   if (data.length === 0) return createResponse("success", "No data to write", null, headersObj);
 
+  // Automatically expand headers to include any new properties present in our data object
+  ensureHeadersExist(sheet, data[0]);
+
   var sheetHeaders = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
-  if (!sheetHeaders || sheetHeaders.length === 0 || sheetHeaders[0] === "") {
-    sheetHeaders = Object.keys(data[0]);
-    sheet.getRange(1, 1, 1, sheetHeaders.length).setValues([sheetHeaders])
-      .setFontWeight("bold")
-      .setBackground("#e8ecef")
-      .setFontColor("black");
-  }
+  sheetHeaders = sheetHeaders.map(function(h) { return String(h).trim(); }).filter(Boolean);
   
   const rows = data.map(item => {
     return sheetHeaders.map(h => {
@@ -287,6 +286,9 @@ function writeData(sheet, data, headersObj) {
 function updateData(sheet, data, headersObj) {
   if (!Array.isArray(data)) data = [data];
   if (data.length === 0) return createResponse("error", "No data provided for update", null, headersObj);
+
+  // Automatically expand headers to include any new properties present in our data object
+  ensureHeadersExist(sheet, data[0]);
 
   const range = sheet.getDataRange();
   const values = range.getValues();
@@ -507,4 +509,90 @@ function findSheetCaseInsensitive(ss, name) {
     }
   }
   return null;
+}
+
+function provisionSheetAndHeaders(ss, sheetName, data) {
+  if (!sheetName) return null;
+  let sheet = findSheetCaseInsensitive(ss, sheetName);
+  let isNew = false;
+  
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    isNew = true;
+  }
+  
+  let columns = GLOBAL_SHEETS_CONFIG[sheetName];
+  if (!columns || columns.length === 0) {
+    if (data) {
+      if (Array.isArray(data) && data.length > 0) {
+        columns = Object.keys(data[0]);
+      } else if (typeof data === 'object' && Object.keys(data).length > 0) {
+        if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+          columns = Object.keys(data.items[0]);
+        } else {
+          columns = Object.keys(data).filter(function(key) {
+            return key !== 'limit' && key !== 'offset' && key !== 'matchType';
+          });
+        }
+      }
+    }
+  }
+  
+  if ((!columns || columns.length === 0) && isNew) {
+    columns = ['id', 'createdAt', 'updatedAt'];
+  }
+  
+  if (columns && columns.length > 0) {
+    sheet.getRange(1, 1, 1, columns.length).setValues([columns])
+      .setFontWeight("bold")
+      .setBackground("#e6b8af")
+      .setFontColor("black");
+    
+    sheet.setFrozenRows(1);
+    try {
+      sheet.autoResizeColumns(1, columns.length);
+    } catch (err) {
+      Logger.log("Auto-resize columns failed: " + err.toString());
+    }
+  }
+  
+  return sheet;
+}
+
+function ensureHeadersExist(sheet, sampleItem) {
+  if (!sampleItem || typeof sampleItem !== 'object') return;
+  
+  const lastCol = Math.max(1, sheet.getLastColumn());
+  let sheetHeaders = [];
+  try {
+    sheetHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  } catch (err) {
+    // Empty sheet
+  }
+  
+  if (!sheetHeaders || sheetHeaders.length === 0 || sheetHeaders[0] === "") {
+    sheetHeaders = [];
+  } else {
+    sheetHeaders = sheetHeaders.map(function(h) { return String(h).trim(); }).filter(Boolean);
+  }
+  
+  const itemKeys = Object.keys(sampleItem);
+  const missingKeys = itemKeys.filter(function(k) {
+    return sheetHeaders.indexOf(k) === -1;
+  });
+  
+  if (missingKeys.length > 0) {
+    const finalHeaders = sheetHeaders.concat(missingKeys);
+    sheet.getRange(1, 1, 1, finalHeaders.length).setValues([finalHeaders])
+      .setFontWeight("bold")
+      .setBackground("#e6b8af")
+      .setFontColor("black");
+    
+    sheet.setFrozenRows(1);
+    try {
+      sheet.autoResizeColumns(1, finalHeaders.length);
+    } catch (err) {
+      Logger.log("Auto-resize columns failed: " + err.toString());
+    }
+  }
 }

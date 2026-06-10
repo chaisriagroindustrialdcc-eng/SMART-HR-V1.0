@@ -147,6 +147,68 @@ async function startServer() {
     }
   });
 
+  // Secure API-powered Skill Recommender route proxying Gemini API key
+  app.post("/api/skills-recommend", async (req, res) => {
+    const { jobTitle, role, department } = req.body;
+    
+    // Pristine agricultural and administrative offline backup recommendations
+    const offlineBackups = [
+      { name: "Agri-Food Quality Control Standards", category: "Compliance", rationale: "Essential regulatory compliance and checks for modern agricultural facilities." },
+      { name: "ERP Purchasing & Dispatch Workflows", category: "Technical", rationale: "Core digital logistics and warehousing system data entry in ERP." },
+      { name: "PPE & Site Sanitation Compliance", category: "Compliance", rationale: "Immediate health regulations and safety rule adherence in production zones." },
+      { name: "Conflict Resolution & Line Leadership", category: "Technical", rationale: "Managing workflows and communications between operations team members." }
+    ];
+
+    const currentApiKey = process.env.GEMINI_API_KEY;
+    if (!currentApiKey) {
+      return res.json({
+        recommendations: offlineBackups.slice(0, 3),
+        offline: true
+      });
+    }
+
+    try {
+      const gemini = new GoogleGenAI({
+        apiKey: currentApiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+
+      const response = await gemini.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: `Recommend exactly 3 highly relevant on-the-job training (OJT) skills for an employee with the Job Title "${jobTitle || 'Staff'}", Role "${role || 'Operator'}", in the Department "${department || 'Operations'}". 
+Return a JSON array containing objects with exactly three fields: "name" (skill title), "category" ("Technical" or "Compliance"), and "rationale" (brief 1-sentence reason why).
+Example Output format:
+[
+  { "name": "Quality Audit Controls", "category": "Compliance", "rationale": "Essential for maintaining alignment with division-appointed audit rules." }
+]
+Do not wrap in markdown or backticks (no \`\`\`json). Output raw clean JSON.`,
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+
+      const text = response.text || "[]";
+      let parsed = JSON.parse(text.trim());
+      if (!Array.isArray(parsed)) {
+        parsed = offlineBackups.slice(0, 3);
+      }
+      return res.json({
+        recommendations: parsed,
+        offline: false
+      });
+    } catch (err) {
+      console.error("Gemini Skills Recommendation Error:", err);
+      return res.json({
+        recommendations: offlineBackups.slice(0, 3),
+        offline: true
+      });
+    }
+  });
+
   // Setup Vite Dev server middleware or static host in production
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

@@ -6,6 +6,16 @@ import { DraggableModal } from '../../components/shared/DraggableModal';
 import { useLanguage } from '../../context/LanguageContext';
 import { getStatusPrintClass, PRINT_STATUS_STYLES } from '../../utils/printUtils';
 
+// --- Modular Sub-Components Imports ---
+import OjtTrendChart from './components/OjtTrendChart';
+import OjtSkillHeatmap from './components/OjtSkillHeatmap';
+import SkillRecommender from './components/SkillRecommender';
+import TraineeTimeline from './components/TraineeTimeline';
+import RecertificationAlerts from './components/RecertificationAlerts';
+import { useAuth } from '../../context/AuthContext';
+import { addSystemLog } from '../../services/logger';
+import { printService, PRINT_TABLE_STYLES } from '../../services/printService';
+
 // --- Theme Configuration (Synced with Home & Permissions Theme) ---
 const THEME = {
   bgMain: '#f3f3f1',
@@ -23,6 +33,10 @@ const THEME = {
 interface SkillItem {
   name: string;
   mastered: boolean;
+  category?: 'Technical' | 'Compliance' | 'Soft Skills';
+  acquiredDate?: string;
+  expirationDate?: string;
+  status?: 'Active' | 'Expired' | 'Needs Recertification';
 }
 
 interface Learner {
@@ -175,10 +189,16 @@ const LocalKpiCard = ({ icon, value, label, colorAccent, colorValue, desc }: any
 
 export default function OjtTraining() {
   const { language } = useLanguage();
+  const { user } = useAuth();
   const [learners, setLearners] = useState<Learner[]>([]);
   const [coachingLogs, setCoachingLogs] = useState<CoachingLog[]>([]);
   const [activeTab, setActiveTab] = useState<'learners' | 'logs'>('learners');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  // Drill-down Timeline and Recertification States
+  const [selectedTimelineLearner, setSelectedTimelineLearner] = useState<Learner | null>(null);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [recertifyPreselectedSkill, setRecertifyPreselectedSkill] = useState('');
 
   // Filters
   const [search, setSearch] = useState('');
@@ -335,152 +355,225 @@ export default function OjtTraining() {
   };
 
   const handlePrintOjtReport = () => {
-    const windowPrint = window.open('', '', 'width=900,height=650');
-    if (!windowPrint) return;
+    // Role-based authorization check
+    const userRole = user?.role || 'Guest';
+    const isAuthorized = ['admin', 'manager', 'supervisor', 'vp', 'legal vp', 'cfo office', 'operations mgr'].includes(userRole.toLowerCase()) || user?.permissions?.canApprove || user?.permissions?.canVerify;
+    
+    if (!isAuthorized) {
+      // Log Print Authorization Denied to SystemLogs
+      addSystemLog(
+        'OJT Training',
+        'PRINT_FAIL',
+        'Warning',
+        `Print Authorization Denied: User "${user?.name || 'Guest'}" (${userRole}) attempted compiling/printing general OJT Trainee Progress report but lacked verification clearance.`,
+        user?.name || 'Guest',
+        user?.role || 'Guest'
+      );
+      alert('Access Denied: You do not have permissions to compile and print OJT reports. This incident has been logged.');
+      return;
+    }
 
-    const learnersRows = filteredLearners.map(l => {
-      const skillsList = l.skills || [];
-      const skillsCount = skillsList.length || 5;
-      const masteredCount = skillsList.filter(sk => sk.mastered).length;
-      const percentValue = skillsCount > 0 ? Math.round((masteredCount / skillsCount) * 100) : 0;
-      const printStatusClass = getStatusPrintClass(l.status);
-      
+    // Proceed in compiling & printing General OJT matrix
+    const fields = [
+      { label: 'Learner ID', key: 'id' },
+      { label: 'Apprentice Name', key: 'employeeName' },
+      { label: 'Assigned Coach', key: 'trainerName' },
+      { label: 'OJT Hours completed', key: 'hoursCompleted' },
+      { label: 'Status', key: 'status', type: 'status' as const }
+    ];
+    
+    printService.printTable(
+      'OJT Trainee Progress Report',
+      fields,
+      filteredLearners,
+      { printedBy: user?.name || 'Authorized Supervisor', role: user?.role || 'Staff' }
+    );
+  };
+
+  const handlePrintIndividualReport = (learner: Learner) => {
+    // Role-based authorization check
+    const userRole = user?.role || 'Guest';
+    const isAuthorized = ['admin', 'manager', 'supervisor', 'vp', 'legal vp', 'cfo office', 'operations mgr'].includes(userRole.toLowerCase()) || user?.permissions?.canApprove || user?.permissions?.canVerify;
+    
+    if (!isAuthorized) {
+      addSystemLog(
+        'OJT Training',
+        'PRINT_FAIL',
+        'Warning',
+        `Print Authorization Denied: User "${user?.name || 'Guest'}" (${userRole}) attempted exporting individual skill matrix booklet for apprentice "${learner.employeeName}" but lacked clearance.`,
+        user?.name || 'Guest',
+        user?.role || 'Guest'
+      );
+      alert('Access Denied: You do not have permissions to print this OJT Employee skill matrix. This incident has been logged.');
+      return;
+    }
+
+    // Build individualized HTML report and trigger window.print
+    const skillsList = learner.skills || [];
+    const logsList = coachingLogs.filter(log => log.learnerId === learner.id);
+    
+    const formattedSkillsRows = skillsList.map((s, idx) => {
+      const category = s.category || 'General';
+      const status = s.mastered ? 'Mastered (Vetted)' : 'In Training';
       return `
         <tr>
-          <td style="font-family: monospace; font-weight: bold; color: #4b5563;">${l.id}</td>
-          <td>
-            <div style="font-weight: bold; color: #111827;">${l.employeeName}</div>
-            <div style="font-size: 10px; color: #4b5563; font-family: monospace; margin-top: 2px;">${l.employeeId} &bull; ${l.dept}</div>
-          </td>
-          <td>
-            <div style="font-weight: bold; color: #374151;">${l.trainerName}</div>
-            <div style="font-size: 10px; color: #6b7280; font-family: monospace; margin-top: 2px; text-transform: uppercase;">${l.trainerDept}</div>
-          </td>
-          <td style="font-family: monospace; text-align: center; font-weight: bold;">${l.hoursCompleted} / ${l.totalHours} Hrs</td>
-          <td>
-            <div style="display: flex; flex-direction: column; gap: 3px;">
-              <div style="font-size: 10px; font-weight: bold; display: flex; justify-content: space-between;">
-                <span>Skills Mastery</span>
-                <span>${masteredCount}/${skillsCount} (${percentValue}%)</span>
-              </div>
-              <div style="width: 100%; height: 6px; background-color: #f3f4f6; border-radius: 3px; overflow: hidden; border: 1px solid #e5e7eb;">
-                <div style="width: ${percentValue}%; height: 100%; background-color: #3f809e; border-radius: 3px;"></div>
-              </div>
-            </div>
-          </td>
-          <td style="text-align: center;">
-            <span class="${printStatusClass}">${l.status}</span>
-          </td>
+          <td>${idx + 1}</td>
+          <td style="font-weight: bold;">${s.name}</td>
+          <td style="text-transform: uppercase; font-weight: bold; color: #4b5563;">${category}</td>
+          <td><span class="print-badge ${s.mastered ? 'print-badge-completed' : 'print-badge-pending'}">${status}</span></td>
+          <td style="font-family: monospace;">${s.acquiredDate || 'In Progress'}</td>
         </tr>
       `;
     }).join('');
 
-    windowPrint.document.write(`
+    const formattedLogsRows = logsList.map((log) => `
+      <tr>
+        <td style="font-family: monospace; font-weight: bold;">${log.date}</td>
+        <td style="font-weight: bold; color: #212c46;">${log.subject}</td>
+        <td>${log.trainerName}</td>
+        <td style="font-family: monospace;">${log.durationMinutes} mins</td>
+        <td style="color: #4b5563; font-style: italic;">"${log.notes}"</td>
+      </tr>
+    `).join('');
+
+    const docHtml = `
+      <!DOCTYPE html>
       <html>
         <head>
-          <title>OJT Trainee Progress Report</title>
+          <title>Skill Matrix & OJT Timeline Dossier - ${learner.employeeName}</title>
+          <meta charset="utf-8">
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+Thai:wght@400;700&display=swap');
-            body { 
-              font-family: 'Inter', 'Noto Sans Thai', sans-serif; 
-              padding: 50px; 
-              color: #1f2937; 
-              background-color: #ffffff;
+            ${PRINT_TABLE_STYLES}
+            h2 {
+              font-size: 11px;
+              color: #212c46;
+              border-left: 3px solid #b58c4f;
+              padding-left: 8px;
+              margin: 24px 0 12px 0;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              font-weight: 900;
             }
-            .header { 
-              display: flex; 
-              justify-content: space-between; 
-              align-items: flex-end; 
-              border-bottom: 3px double #1f2937; 
-              padding-bottom: 15px; 
-              margin-bottom: 30px; 
-            }
-            .logo-section { display: flex; align-items: center; gap: 10px; }
-            .company { font-weight: 900; font-size: 18px; color: #212c46; letter-spacing: 1px; }
-            .company-sub { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #b58c4f; letter-spacing: 1.5px; margin-top: 2px; }
-            .title-section { text-align: right; }
-            .doc-title { font-weight: 900; font-size: 16px; color: #212c46; letter-spacing: 1px; text-transform: uppercase; }
-            .meta { font-size: 10px; color: #6b7280; font-family: monospace; margin-top: 3px; }
-            
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th { 
-              background: #212c46; 
-              color: #ffffff; 
-              text-align: left; 
-              padding: 12px; 
-              font-size: 11px; 
-              font-weight: 700; 
-              text-transform: uppercase; 
-              letter-spacing: 0.5px;
-              border: 1px solid #e5e7eb;
-            }
-            td { padding: 12px; font-size: 11px; border: 1px solid #e5e7eb; }
-            
-            .footer { 
-              margin-top: 50px; 
-              border-top: 1px solid #e5e7eb; 
-              padding-top: 15px; 
-              display: flex; 
-              justify-content: space-between; 
-              font-size: 9px; 
-              font-weight: bold; 
-              color: #9ca3af; 
-              text-transform: uppercase; 
-              letter-spacing: 1px;
-            }
-            
-            ${PRINT_STATUS_STYLES}
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="logo-section">
-              <div>
-                <div class="company">★ CHAISRI AGROINDUSTRIAL</div>
-                <div class="company-sub">HR Organizational Logistics Platform</div>
+          <div class="print-container">
+            <div class="print-header">
+              <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=200" alt="Company Icon">
+              <div class="print-header-text">
+                <h1>Apprentice Skill Matrix Dossier</h1>
+                <p>CHAISRI AGRO-INDUSTRIAL • ON-THE-JOB TRAINING ARCHIVES</p>
               </div>
             </div>
-            <div class="title-section">
-              <div class="doc-title">OJT Trainee Progress Report</div>
-              <div class="meta">Generated: ${new Date().toLocaleString()} &bull; Total Trainees: ${filteredLearners.length}</div>
+
+            <div class="print-meta-grid">
+              <div class="print-meta-item">
+                <h5>Trainee Name</h5>
+                <p>${learner.employeeName}</p>
+                <p style="font-size: 9px; font-weight: normal; color: #7a8b95; margin-top: 2px;">
+                  ID: ${learner.employeeId} &bull; ${learner.dept}
+                </p>
+              </div>
+              <div class="print-meta-item">
+                <h5>Assigned Coach</h5>
+                <p>${learner.trainerName}</p>
+                <p style="font-size: 9px; font-weight: normal; color: #7a8b95; margin-top: 2px;">
+                  Role: ${learner.trainerDept}
+                </p>
+              </div>
+              <div class="print-meta-item">
+                <h5>Hours Progress & Status</h5>
+                <p>${learner.hoursCompleted} / ${learner.totalHours} Hours</p>
+                <p style="font-size: 9px; font-weight: bold; color: #b58c4f; margin-top: 2px; text-transform: uppercase;">
+                  OJT STATUS: ${learner.status}
+                </p>
+              </div>
+            </div>
+
+            <h2>I. Competency Skill Matrix Checklist</h2>
+            <table class="print-layout-table">
+              <thead>
+                <tr>
+                  <th style="width: 8%;">No.</th>
+                  <th style="width: 40%;">Assessed Skill/Competency Description</th>
+                  <th style="width: 20%;">Category</th>
+                  <th style="width: 17%;">Status</th>
+                  <th style="width: 15%;">Training Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${formattedSkillsRows || '<tr><td colspan="5" style="text-align: center; color: #9ca3af;">No skill items assigned to this apprentice</td></tr>'}
+              </tbody>
+            </table>
+
+            <h2>II. Mentored Coaching Activity Logs</h2>
+            <table class="print-layout-table">
+              <thead>
+                <tr>
+                  <th style="width: 15%;">Date</th>
+                  <th style="width: 25%;">Subject Curriculum</th>
+                  <th style="width: 20%;">Trainer / Buddy</th>
+                  <th style="width: 12%;">Duration</th>
+                  <th style="width: 28%;">Trainer Assessor Notes & Feedback</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${formattedLogsRows || '<tr><td colspan="5" style="text-align: center; color: #9ca3af;">No coaching activity logs recorded for this apprentice</td></tr>'}
+              </tbody>
+            </table>
+
+            <div class="print-footer-signature" style="margin-top: 40px;">
+              <div class="signature-box">
+                <div class="signature-line"></div>
+                <p>Trainee Signature</p>
+                <p style="font-weight: bold; margin-top: 4px;">${learner.employeeName}</p>
+              </div>
+              <div class="signature-box">
+                <div class="signature-line"></div>
+                <p>Division Supervisor Signature</p>
+                <p style="font-weight: bold; margin-top: 4px;">${learner.trainerName}</p>
+              </div>
             </div>
           </div>
-          
-          <p style="font-size: 11px; color: #374151; font-weight: bold; margin-bottom: 20px;">
-            This registry displays the status of all active, pending, and completed on-the-job trainee operations under division-appointed trainers.
-          </p>
-          
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 12%;">Trainee ID</th>
-                <th style="width: 25%;">Assigned Apprentice</th>
-                <th style="width: 25%;">Assigned Coach</th>
-                <th style="width: 13%; text-align: center;">OJT Hours</th>
-                <th style="width: 15%;">Skills Progress</th>
-                <th style="width: 10%; text-align: center;">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${learnersRows || `<tr><td colspan="6" style="text-align: center; color: #9ca3af; font-weight: bold; padding: 24px;">No active trainee found</td></tr>`}
-            </tbody>
-          </table>
-          
-          <div class="footer">
-            <span>CONFIDENTIAL - FOR INTERNAL HR AUDIT ONLY</span>
-            <span>SYSTEM POWERED BY CHAISRI HR LOGS</span>
-            <span>Page 1 of 1</span>
-          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 600);
+            };
+          </script>
         </body>
       </html>
-    `);
+    `;
 
-    windowPrint.document.close();
-    windowPrint.focus();
-    setTimeout(() => {
-      windowPrint.print();
-      windowPrint.close();
-    }, 500);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Pop-up blocker is preventing document export. Please allow popups.');
+      return;
+    }
+    
+    printWindow.document.write(docHtml);
+    printWindow.document.close();
+
+    // Log the successful print action
+    addSystemLog(
+      'OJT Training',
+      'PRINT_JOB',
+      'Success',
+      `Printed individual skill matrix & OJT dossier for trainee "${learner.employeeName}"`,
+      user?.name || 'Guest',
+      user?.role || 'Guest'
+    );
+  };
+
+  const handleTriggerRecertify = (learner: Learner, skillName: string) => {
+    setRecertifyPreselectedSkill(skillName);
+    // Find matching learner first
+    const matched = learners.find(l => l.id === learner.id);
+    if (matched) {
+      setIsSubmitRecordOpen(true);
+    }
   };
 
   return (
@@ -567,6 +660,12 @@ export default function OjtTraining() {
           </button>
         </div>
       </div>
+
+      {/* Recertification Alerts and Compliance Expiration Monitoring system */}
+      <RecertificationAlerts 
+        learners={learners} 
+        onTriggerRecertify={handleTriggerRecertify} 
+      />
 
       {/* 3. Standard KPI Dashboard Container matching Permissions Exactly */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2 mb-3">
@@ -668,11 +767,11 @@ export default function OjtTraining() {
               <thead className="bg-[#222b38] text-white">
                 <tr className="border-b-2 border-[#b58c4f]">
                   <th className="py-4 px-4 text-[12px] font-black uppercase tracking-wider w-[12%] font-mono text-left">Learner ID</th>
-                  <th className="py-4 px-4 text-[12px] font-black uppercase tracking-wider text-left w-[24%]">Assigned Apprentice</th>
-                  <th className="py-4 px-4 text-[12px] font-black uppercase tracking-wider text-left w-[24%]">Assigned Coach (PM)</th>
+                  <th className="py-4 px-4 text-[12px] font-black uppercase tracking-wider text-left w-[22%]">Assigned Apprentice</th>
+                  <th className="py-4 px-4 text-[12px] font-black uppercase tracking-wider text-left w-[22%]">Assigned Coach (PM)</th>
                   <th className="py-4 px-4 text-[12px] font-black uppercase tracking-wider text-center w-[12%]">OJT Duration</th>
                   <th className="py-4 px-4 text-[12px] font-black uppercase tracking-wider text-left w-[18%]">Progress Matrix</th>
-                  <th className="py-4 px-4 text-[12px] font-black uppercase tracking-wider text-center w-[10%]">Actions</th>
+                  <th className="py-4 px-4 text-[12px] font-black uppercase tracking-wider text-center w-[14%]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-[12px] font-medium text-[#212c46]">
@@ -733,18 +832,32 @@ export default function OjtTraining() {
                           </div>
                         </td>
                         <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-[1px]">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button 
+                              onClick={() => { setSelectedTimelineLearner(learner); setIsTimelineOpen(true); }}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#3f809e] hover:text-white hover:bg-[#3f809e] transition-colors cursor-pointer border border-[#3f809e]/30"
+                              title="View Skill Timeline History"
+                            >
+                              <Icons.History size={11} strokeWidth={2.5}/>
+                            </button>
+                            <button 
+                              onClick={() => handlePrintIndividualReport(learner)}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-[#b58c4f] hover:text-white hover:bg-[#b58c4f] transition-colors cursor-pointer border border-[#b58c4f]/30"
+                              title="Print Individual OJT Report Booklet"
+                            >
+                              <Icons.Printer size={11} strokeWidth={2.5}/>
+                            </button>
                             <button 
                               onClick={() => openLearnerEdit(learner)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-[#212c46] transition-colors cursor-pointer"
-                              title="Edit Apprentice"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-[#212c46] transition-colors cursor-pointer border border-slate-200"
+                              title="Edit Apprentice Details"
                             >
                               <Icons.Edit3 size={11} strokeWidth={2.5}/>
                             </button>
                             <button 
                               onClick={() => handleDeleteLearner(learner.id)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-rose-700 transition-colors cursor-pointer"
-                              title="Delete Apprentice"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-rose-700 transition-colors cursor-pointer border border-slate-200"
+                              title="Delete Apprentice Entry"
                             >
                               <Icons.Trash2 size={11} strokeWidth={2.5}/>
                             </button>
@@ -832,6 +945,41 @@ export default function OjtTraining() {
         )}
       </div>
 
+      {/* Visual Analytics Bento Grid: Mastery Trend Line, Department Heatmap & AI Copilot Recommender */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+        <div className="lg:col-span-2">
+          <OjtTrendChart learners={learners} />
+        </div>
+        <div className="lg:col-span-1">
+          <OjtSkillHeatmap learners={learners} />
+        </div>
+        <div className="lg:col-span-1">
+          <SkillRecommender 
+            learners={learners} 
+            onAdoptSkill={(recomSkill, learnerId) => {
+              // Add recommended skill to current OJT learners in state
+              const updated = learners.map(l => {
+                if (l.id === learnerId) {
+                  const existingSkills = l.skills || [];
+                  if (!existingSkills.some(s => s.name === recomSkill.name)) {
+                    return {
+                      ...l,
+                      skills: [...existingSkills, { 
+                        name: recomSkill.name, 
+                        mastered: false, 
+                        category: recomSkill.category as any
+                      }]
+                    };
+                  }
+                }
+                return l;
+              });
+              saveLearners(updated);
+            }} 
+          />
+        </div>
+      </div>
+
       {/* 6. Model Registry Configuration Settings Segment (Standardized design inspired by permissions) */}
       <div className="bg-[#f8f9fa] rounded-2xl border border-[#eaeaec] p-6 mb-8 relative overflow-hidden font-sans">
         <div className="flex justify-between items-center mb-4">
@@ -913,7 +1061,11 @@ export default function OjtTraining() {
         <SubmitTrainingRecordModal 
           isOpen={isSubmitRecordOpen}
           learnersList={learners}
-          onClose={() => setIsSubmitRecordOpen(false)}
+          recertifyPreselectedSkill={recertifyPreselectedSkill}
+          onClose={() => {
+            setIsSubmitRecordOpen(false);
+            setRecertifyPreselectedSkill('');
+          }}
           onSave={(newLog: CoachingLog, updatedSkills: SkillItem[], targetLearnerId: string) => {
             const logId = 'LOG-' + Date.now().toString().slice(-3);
             const extendedLog = { ...newLog, id: logId };
@@ -924,7 +1076,31 @@ export default function OjtTraining() {
               if (l.id === targetLearnerId) {
                 const addedHours = Math.round(newLog.durationMinutes / 60);
                 const nextHours = Math.min(l.hoursCompleted + addedHours, l.totalHours);
-                const allMastered = updatedSkills.length > 0 && updatedSkills.every(s => s.mastered);
+
+                // Add acquired dates and expiration dates on newly mastered skills!
+                const markedSkills = updatedSkills.map(sk => {
+                  const preSkill = (l.skills || []).find(ps => ps.name === sk.name);
+                  if (sk.mastered && !preSkill?.mastered) {
+                    const today = new Date().toISOString().split('T')[0];
+                    const expDateObj = new Date();
+                    expDateObj.setDate(expDateObj.getDate() + 90); // 90 days validity for compliance
+                    const expStr = expDateObj.toISOString().split('T')[0];
+                    return {
+                      ...sk,
+                      acquiredDate: today,
+                      expirationDate: sk.category === 'Compliance' ? expStr : undefined,
+                      status: 'Active' as const
+                    };
+                  }
+                  return {
+                    ...sk,
+                    acquiredDate: sk.acquiredDate || preSkill?.acquiredDate,
+                    expirationDate: sk.expirationDate || preSkill?.expirationDate,
+                    status: sk.status || preSkill?.status
+                  };
+                });
+
+                const allMastered = markedSkills.length > 0 && markedSkills.every(s => s.mastered);
                 
                 let nextStatus = l.status;
                 if (allMastered) {
@@ -935,7 +1111,7 @@ export default function OjtTraining() {
 
                 return {
                   ...l,
-                  skills: updatedSkills,
+                  skills: markedSkills,
                   hoursCompleted: nextHours,
                   status: nextStatus as any,
                   lastMeetingDate: newLog.date
@@ -945,6 +1121,24 @@ export default function OjtTraining() {
             });
             saveLearners(nextLearners);
             setIsSubmitRecordOpen(false);
+            setRecertifyPreselectedSkill('');
+          }}
+        />
+      )}
+
+      {/* Trainee OJT Skill Timeline drill-down dialogue modal workspace */}
+      {isTimelineOpen && selectedTimelineLearner && (
+        <TraineeTimeline
+          isOpen={isTimelineOpen}
+          learner={selectedTimelineLearner}
+          coachingLogs={coachingLogs}
+          onClose={() => {
+            setIsTimelineOpen(false);
+            setSelectedTimelineLearner(null);
+          }}
+          onTriggerRecertify={(learner, skillName) => {
+            setIsTimelineOpen(false);
+            handleTriggerRecertify(learner, skillName);
           }}
         />
       )}
@@ -1385,7 +1579,7 @@ function EditPolicyModal({ isOpen, onClose, initialData, onSave }: any) {
 }
 
 // REGISTER SUBMIT TRAINING RECORD AND SKILLS COMPETENCY MODAL
-function SubmitTrainingRecordModal({ isOpen, learnersList, onClose, onSave }: any) {
+function SubmitTrainingRecordModal({ isOpen, learnersList, recertifyPreselectedSkill, onClose, onSave }: any) {
   const [selectedLearnerId, setSelectedLearnerId] = useState(learnersList[0]?.id || '');
   const [trainerName, setTrainerName] = useState('');
   const [subject, setSubject] = useState('');
@@ -1393,9 +1587,23 @@ function SubmitTrainingRecordModal({ isOpen, learnersList, onClose, onSave }: an
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [rating, setRating] = useState(4.5);
   const [notes, setNotes] = useState('');
+  const [skillCategoryFilter, setSkillCategoryFilter] = useState<'All' | 'Technical' | 'Compliance' | 'Soft Skills'>('All');
   
   // Local list of skill items of the selected apprentice
   const [skills, setSkills] = useState<SkillItem[]>([]);
+
+  // Pre-fill subject and comments if the user triggers recertification for a specific skill
+  useEffect(() => {
+    if (isOpen && recertifyPreselectedSkill) {
+      setSubject(`Recertify Compliance: ${recertifyPreselectedSkill}`);
+      setNotes(`Recertification assessment session specifically triggered for the Compliance competency: "${recertifyPreselectedSkill}". Checked compliance requirements.`);
+      setSkillCategoryFilter('Compliance');
+    } else if (isOpen) {
+      setSubject('');
+      setNotes('');
+      setSkillCategoryFilter('All');
+    }
+  }, [isOpen, recertifyPreselectedSkill]);
 
   // Sync details when selected learner changes
   useEffect(() => {
@@ -1404,15 +1612,46 @@ function SubmitTrainingRecordModal({ isOpen, learnersList, onClose, onSave }: an
       setTrainerName(matched.trainerName || '');
       // Fallback skills if not defined
       const defaultSkills = matched.skills || [
-        { name: 'Introduction to Core Procedures', mastered: false },
-        { name: 'On-Job Technical Competence', mastered: false },
-        { name: 'Workflow Integration Standards', mastered: false },
-        { name: 'Safety Compliance Regulations', mastered: false },
-        { name: 'Final Performance Assessment', mastered: false }
+        { name: 'Introduction to Core Procedures', mastered: false, category: 'Technical' },
+        { name: 'On-Job Technical Competence', mastered: false, category: 'Technical' },
+        { name: 'Workflow Integration Standards', mastered: false, category: 'Compliance' },
+        { name: 'Safety Compliance Regulations', mastered: false, category: 'Compliance' },
+        { name: 'Final Performance Assessment', mastered: false, category: 'Soft Skills' }
       ];
       setSkills(defaultSkills);
     }
   }, [selectedLearnerId, learnersList]);
+
+  // Resolve computed categories elegantly to group items in the UI dynamically
+  const filteredSkills = useMemo(() => {
+    return skills.map((s, idx) => {
+      const defaultCategory = s.name.toLowerCase().includes('regulatory') ||
+        s.name.toLowerCase().includes('code') ||
+        s.name.toLowerCase().includes('compliance') ||
+        s.name.toLowerCase().includes('safety') ||
+        s.name.toLowerCase().includes('privacy') ||
+        s.name.toLowerCase().includes('standards') ||
+        s.name.toLowerCase().includes('standard') ||
+        s.name.toLowerCase().includes('safeguard') ||
+        s.name.toLowerCase().includes('audits') ||
+        s.name.toLowerCase().includes('tax')
+          ? 'Compliance'
+          : s.name.toLowerCase().includes('brand') ||
+            s.name.toLowerCase().includes('voice') ||
+            s.name.toLowerCase().includes('introduction') ||
+            s.name.toLowerCase().includes('voice') ||
+            s.name.toLowerCase().includes('social') ||
+            s.name.toLowerCase().includes('soft')
+          ? 'Soft Skills'
+          : 'Technical';
+
+      const category = s.category || defaultCategory;
+      return { ...s, category, origIndex: idx };
+    }).filter(s => {
+      if (skillCategoryFilter === 'All') return true;
+      return s.category === skillCategoryFilter;
+    });
+  }, [skills, skillCategoryFilter]);
 
   const handleToggleSkill = (index: number) => {
     const updated = [...skills];
@@ -1523,26 +1762,61 @@ function SubmitTrainingRecordModal({ isOpen, learnersList, onClose, onSave }: an
 
         {/* Dynamic Skill Competency Checklist */}
         <div className="border border-[#eaeaec] bg-slate-50/50 rounded-xl p-4">
-          <span className="block text-[10.5px] font-black text-[#b58c4f] uppercase tracking-widest mb-3 flex items-center gap-1.5">
-            <Icons.CheckSquare size={13} className="text-[#657f4d]"/> ประเมินทักษะสมรรถนะ (Competency Assessment Checklist)
-          </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <span className="text-[10.5px] font-black text-[#b58c4f] uppercase tracking-widest flex items-center gap-1.5">
+              <Icons.CheckSquare size={13} className="text-[#657f4d]"/> Competency Assessment
+            </span>
+            {/* Category Filter Tabs */}
+            <div className="flex items-center gap-1 bg-white border border-[#eaeaec] rounded-lg p-0.5 shrink-0">
+              {(['All', 'Technical', 'Compliance', 'Soft Skills'] as const).map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSkillCategoryFilter(cat)}
+                  className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    skillCategoryFilter === cat 
+                      ? 'bg-[#212c46] text-white' 
+                      : 'text-slate-500 hover:text-[#b58c4f]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-2.5 max-h-[160px] overflow-y-auto pr-1">
-            {skills.map((s, idx) => (
-              <label key={idx} className="flex items-center gap-3 p-2 bg-white rounded-lg border border-[#eaeaec] cursor-pointer hover:border-[#b58c4f] transition-colors select-none">
-                <input
-                  type="checkbox"
-                  checked={s.mastered}
-                  onChange={() => handleToggleSkill(idx)}
-                  className="rounded text-[#657f4d] focus:ring-[#657f4d] w-4 h-4"
-                />
-                <div className="flex flex-col">
-                  <span className="text-[11.5px] font-bold text-[#212c46] leading-none">{s.name}</span>
-                  <span className={`text-[9.5px] font-black uppercase mt-1 leading-none ${s.mastered ? 'text-[#657f4d]' : 'text-[#7a8b95]'}`}>
-                    {s.mastered ? '★ Mastery Vetted' : '☉ In Coaching'}
-                  </span>
-                </div>
-              </label>
-            ))}
+            {filteredSkills.length === 0 ? (
+              <div className="text-center py-6 text-slate-400 font-bold uppercase text-[10px] tracking-widest">
+                No skills found in this category
+              </div>
+            ) : (
+              filteredSkills.map((s) => (
+                <label key={s.origIndex} className="flex items-center gap-3 p-2 bg-white rounded-lg border border-[#eaeaec] cursor-pointer hover:border-[#b58c4f] transition-colors select-none">
+                  <input
+                    type="checkbox"
+                    checked={s.mastered}
+                    onChange={() => handleToggleSkill(s.origIndex)}
+                    className="rounded text-[#657f4d] focus:ring-[#657f4d] w-4 h-4"
+                  />
+                  <div className="flex flex-1 flex-col">
+                    <div className="flex items-start justify-between gap-1">
+                      <span className="text-[11.5px] font-bold text-[#212c46] leading-snug">{s.name}</span>
+                      <span className={`px-1.5 py-0.2 rounded text-[8px] font-black uppercase tracking-widest shrink-0 ${
+                        s.category === 'Compliance' ? 'bg-red-50 text-red-700 border border-red-200' :
+                        s.category === 'Soft Skills' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
+                        'bg-sky-50 text-sky-700 border border-sky-200'
+                      }`}>
+                        {s.category}
+                      </span>
+                    </div>
+                    <span className={`text-[9.5px] font-black uppercase mt-1 leading-none ${s.mastered ? 'text-[#657f4d]' : 'text-[#7a8b95]'}`}>
+                      {s.mastered ? '★ Mastery Vetted' : '☉ In Coaching'}
+                    </span>
+                  </div>
+                </label>
+              ))
+            )}
           </div>
         </div>
 

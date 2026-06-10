@@ -57,6 +57,8 @@ import CareerPath from './pages/Talent/CareerPath';
 import SuccessionPlan from './pages/Talent/SuccessionPlan';
 import OrientationTraining from './pages/OrientationTraining';
 import OjtTraining from './pages/OjtTraining';
+import InHouseTraining from './pages/InHouseTraining';
+import PublicSeminar from './pages/PublicSeminar';
 
 export default function App() {
   return (
@@ -160,6 +162,16 @@ export default function App() {
               <Route path="/talent-dev/ojt" element={
                 <ProtectedRoute>
                   <OjtTraining />
+                </ProtectedRoute>
+              } />
+              <Route path="/talent-dev/inhouse" element={
+                <ProtectedRoute>
+                  <InHouseTraining />
+                </ProtectedRoute>
+              } />
+              <Route path="/talent-dev/public" element={
+                <ProtectedRoute>
+                  <PublicSeminar />
                 </ProtectedRoute>
               } />
               <Route path="/recruitment/:tab" element={

@@ -58,6 +58,45 @@ const generateMockLogs = () => {
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         });
     }
+
+    // Pre-seed realistic print audit log records
+    logs.push({
+        id: `LOG-PR001`,
+        timestamp: new Date(Date.now() - 3600000 * 2).toISOString().replace('T', ' ').substring(0, 19),
+        user: 'SOMCHAI SALES',
+        role: 'ADMIN',
+        ip: '192.168.1.100',
+        module: 'OJT Training',
+        action: 'PRINT_JOB',
+        status: 'Success',
+        details: 'Printed individual skill matrix & OJT dossier for trainee "Thanakorn Rungsit" (5 records)',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0'
+    });
+    logs.push({
+        id: `LOG-PR002`,
+        timestamp: new Date(Date.now() - 3600000 * 8).toISOString().replace('T', ' ').substring(0, 19),
+        user: 'SUDA MARKETING',
+        role: 'USER',
+        ip: '192.168.2.14',
+        module: 'OJT Training',
+        action: 'PRINT_DENIED',
+        status: 'Failed',
+        details: 'Print Authorization Denied: Denied access to print OJT trainee summary matrix due to insufficient role permissions.',
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+    });
+    logs.push({
+        id: `LOG-PR003`,
+        timestamp: new Date(Date.now() - 3600000 * 24).toISOString().replace('T', ' ').substring(0, 19),
+        user: 'SMART LAW Developer',
+        role: 'ADMIN',
+        ip: '192.168.1.250',
+        module: 'Print Report',
+        action: 'PRINT_JOB',
+        status: 'Success',
+        details: 'Printed table report: "Apprentice OJT Registry & Skill Certification Record Book" (12 records)',
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
+    });
+
     return logs.sort((a, b: any) => (new Date(b.timestamp) as any) - (new Date(a.timestamp) as any));
 };
 
@@ -239,18 +278,70 @@ export default function AccessLogs() {
     const [isGuideOpen, setIsGuideOpen] = useState(false);
     const [selectedLog, setSelectedLog] = useState<any>(null);
     const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'all' | 'print_jobs'>('all');
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(15);
-    const [logs, setLogs] = useState(INITIAL_LOGS);
+    const [logs, setLogs] = useState<any[]>(() => {
+        const saved = localStorage.getItem('local_system_logs');
+        if (saved) {
+            try { return JSON.parse(saved); } catch (e) {}
+        }
+        // Save initial mock logs if not already written
+        localStorage.setItem('local_system_logs', JSON.stringify(INITIAL_LOGS));
+        return INITIAL_LOGS;
+    });
 
-    const totalLogs = logs.length;
-    const failedLogs = logs.filter(l => l.status === 'Failed').length;
-    const successLogs = logs.filter(l => l.status === 'Success').length;
-    const uniqueUsers = new Set(logs.map(l => l.user)).size;
+    useEffect(() => {
+        const handleNewLog = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            if (customEvent.detail) {
+                setLogs(prev => [customEvent.detail, ...prev]);
+            }
+        };
+
+        window.addEventListener('new-system-log', handleNewLog);
+        
+        // Also sync from physical changes to localStorage if active in other tabs
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === 'local_system_logs' && e.newValue) {
+                try {
+                    setLogs(JSON.parse(e.newValue));
+                } catch (err) {}
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
+
+        return () => {
+            window.removeEventListener('new-system-log', handleNewLog);
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, []);
+
+    const totalLogs = useMemo(() => {
+        return logs.filter(l => activeTab === 'all' ? true : (l.action === 'PRINT_JOB' || l.action === 'PRINT_DENIED')).length;
+    }, [logs, activeTab]);
+
+    const failedLogs = useMemo(() => {
+        const targetLogs = activeTab === 'all' ? logs : logs.filter(l => l.action === 'PRINT_JOB' || l.action === 'PRINT_DENIED');
+        return targetLogs.filter(l => l.status === 'Failed' || l.status === 'Warning').length;
+    }, [logs, activeTab]);
+
+    const successLogs = useMemo(() => {
+        const targetLogs = activeTab === 'all' ? logs : logs.filter(l => l.action === 'PRINT_JOB' || l.action === 'PRINT_DENIED');
+        return targetLogs.filter(l => l.status === 'Success').length;
+    }, [logs, activeTab]);
+
+    const uniqueUsers = useMemo(() => {
+        const targetLogs = activeTab === 'all' ? logs : logs.filter(l => l.action === 'PRINT_JOB' || l.action === 'PRINT_DENIED');
+        return new Set(targetLogs.map(l => l.user)).size;
+    }, [logs, activeTab]);
 
     const filteredLogs = useMemo(() => {
         let res = logs;
+        if (activeTab === 'print_jobs') {
+            res = res.filter(l => l.action === 'PRINT_JOB' || l.action === 'PRINT_DENIED');
+        }
         if (statusFilter !== 'All') {
             res = res.filter(l => l.status === statusFilter);
         }
@@ -260,11 +351,12 @@ export default function AccessLogs() {
                 l.user.toLowerCase().includes(q) || 
                 l.module.toLowerCase().includes(q) || 
                 l.action.toLowerCase().includes(q) ||
+                (l.details && l.details.toLowerCase().includes(q)) ||
                 l.ip.includes(q)
             );
         }
         return res;
-    }, [logs, statusFilter, searchQuery]);
+    }, [logs, activeTab, statusFilter, searchQuery]);
 
     const paginatedLogs = useMemo(() => {
         const start = (currentPage - 1) * itemsPerPage;
@@ -273,7 +365,7 @@ export default function AccessLogs() {
 
     const totalPages = Math.ceil(filteredLogs.length / itemsPerPage) || 1;
 
-    useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, itemsPerPage]);
+    useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, itemsPerPage, activeTab]);
 
     const getStatusStyle = (status: string) => {
         switch(status) {
@@ -316,6 +408,22 @@ export default function AccessLogs() {
                             SECURITY AUDIT & ACTIVITY TRACKING
                         </p>
                     </div>
+                </div>
+
+                {/* Segmented Audit History Toggles: Complete vs Print Jobs History only */}
+                <div className="bg-white/50 p-1.5 rounded-xl border border-white/60 shadow-inner flex items-[#212c46] items-center gap-1 shrink-0">
+                    <button 
+                        onClick={() => setActiveTab('all')} 
+                        className={`px-4 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 cursor-pointer ${activeTab === 'all' ? 'bg-[#212c46] text-white shadow-md' : 'text-[#7a8b95] hover:text-[#b58c4f]'}`}
+                    >
+                        <Activity size={13} /> Complete Audit
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('print_jobs')} 
+                        className={`px-4 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 cursor-pointer ${activeTab === 'print_jobs' ? 'bg-[#212c46] text-white shadow-md' : 'text-[#7a8b95] hover:text-[#b58c4f]'}`}
+                    >
+                        <FileText size={13} /> Print Job History
+                    </button>
                 </div>
             </div>
 

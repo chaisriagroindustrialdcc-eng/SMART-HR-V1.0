@@ -217,7 +217,7 @@ export default function Header({ onOpenPendingPanel }: HeaderProps = {}) {
   return (
     <header className={`h-24 px-8 flex flex-row items-center justify-between z-10 shrink-0 bg-transparent w-full transition-all duration-300 ${isModalOpen ? 'filter blur-[12px] opacity-40 pointer-events-none scale-[0.98]' : ''}`}>
       <div className="flex items-center gap-6">
-        <div className="flex items-center justify-center shrink-0 bg-white p-1 rounded-xl shadow-sm border border-[#cdd0db]/30">
+        <div className="flex items-center justify-center shrink-0">
           <svg width="44" height="44" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-sm">
             <defs>
               <linearGradient id="smartHrGrad" x1="0%" y1="0%" x2="100%" y2="100%">

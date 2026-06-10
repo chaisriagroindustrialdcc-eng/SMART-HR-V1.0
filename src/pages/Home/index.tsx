@@ -643,6 +643,41 @@ const UpcomingBirthdaysAndAnniversaries = () => {
         return list.sort((a, b) => a.daysLeft - b.daysLeft);
     }, [employees]);
 
+    const currentMonthBirthdays = useMemo(() => {
+        const testDate = new Date();
+        const currentMonth = testDate.getMonth() + 1; // 1-indexed, June is 6
+        const list: any[] = [];
+        
+        employees.forEach(emp => {
+            if (emp.birthDate) {
+                const parts = emp.birthDate.split('-');
+                if (parts.length === 3) {
+                    const month = parseInt(parts[1], 10);
+                    const day = parseInt(parts[2], 10);
+                    
+                    if (month === currentMonth) {
+                        list.push({
+                            id: `cur-month-bday-${emp.employeeId}`,
+                            employeeId: emp.employeeId,
+                            employee: emp,
+                            type: 'birthday',
+                            month,
+                            day,
+                            dateLabel: `${day} ${getMonthName(month)}`,
+                            milestone: `Birthday (วันเกิด)`,
+                            title: 'Birthday (วันเกิด)',
+                            daysLeft: 999 // placeholder
+                        });
+                    }
+                }
+            }
+        });
+        
+        return list.sort((a, b) => a.day - b.day);
+    }, [employees]);
+
+    const [celebrationTab, setCelebrationTab] = useState<'monthly' | 'upcoming'>('monthly');
+
     const openGreeting = (celebration: any) => {
         setSelectedPerson(celebration);
         setIsModalOpen(true);
@@ -873,14 +908,74 @@ const UpcomingBirthdaysAndAnniversaries = () => {
             width="max-w-md"
         >
             <div className="p-6 max-h-[85vh] overflow-y-auto custom-scrollbar flex flex-col bg-white">
-                <p className="text-[10px] text-[#748ea1] font-black uppercase tracking-widest mb-4">
-                    Celebration list look-ahead (Next 30 days)
-                </p>
+                {/* Tab Switcher */}
+                <div className="flex border-b border-[#eaeaec] mb-4">
+                    <button
+                        onClick={() => setCelebrationTab('monthly')}
+                        className={`flex-1 pb-2 font-black uppercase tracking-wider text-[10px] text-center transition-all ${celebrationTab === 'monthly' ? 'text-[#a94228] border-b-2 border-[#a94228]' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Birthdays This Month (Born in June)
+                    </button>
+                    <button
+                        onClick={() => setCelebrationTab('upcoming')}
+                        className={`flex-1 pb-2 font-black uppercase tracking-wider text-[10px] text-center transition-all ${celebrationTab === 'upcoming' ? 'text-[#a94228] border-b-2 border-[#a94228]' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Upcoming (Next 30 Days)
+                    </button>
+                </div>
+
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-2 text-[#7a8b95]">
                         <div className="w-6 h-6 border-2 border-[#b7a159] border-t-transparent rounded-full animate-spin"></div>
                         <span className="text-[10px] font-black uppercase tracking-wider">Syncing Database...</span>
                     </div>
+                ) : celebrationTab === 'monthly' ? (
+                    currentMonthBirthdays.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-[#7a8b95] text-center border border-dashed border-[#eaeaec] rounded-xl bg-slate-50/30">
+                            <Cake size={24} className="opacity-40 mb-2" />
+                            <span className="text-[10px] font-black uppercase tracking-wider">No Birthdays in Current Month</span>
+                        </div>
+                    ) : (
+                        <div className="space-y-3 overflow-y-auto max-h-[400px] pr-1">
+                            {currentMonthBirthdays.map((c) => (
+                                <div 
+                                    key={c.id} 
+                                    onClick={() => {
+                                        setIsUpcomingModalOpen(false);
+                                        openGreeting(c);
+                                    }} 
+                                    className="flex items-center gap-3 bg-gradient-to-r from-amber-500/[0.04] to-rose-500/[0.04] border border-[#b7a159]/20 hover:border-[#a94228]/50 rounded-xl p-3 shadow-2xs hover:shadow-xs transition-all cursor-pointer group"
+                                >
+                                    <div className="relative">
+                                        <img 
+                                            src={c.employee.avatar} 
+                                            alt={c.employee.name} 
+                                            className="w-10 h-10 rounded-lg object-cover bg-slate-50 border border-white shadow-xs group-hover:scale-105 transition-all" 
+                                        />
+                                        <div className="absolute -bottom-1 -right-1 bg-[#a94228] p-1 rounded text-white border border-white">
+                                            <Cake size={8} />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex-1 min-w-0 text-left">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            <h4 className="text-[#212c46] font-extrabold text-[11px] truncate">{c.employee.name.split(' (')[0]}</h4>
+                                            <span className="text-[7px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider bg-rose-100 text-[#a94228]">
+                                                BORN IN JUNE 🎉
+                                            </span>
+                                        </div>
+                                        <p className="text-[#7a8b95] text-[8.5px] font-bold mt-0.5">
+                                            🎂 {c.employee.department} • {c.employee.position}
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="text-[9px] font-black text-[#a94228] tracking-wider shrink-0 bg-white border border-rose-100 px-2 py-1 rounded-lg text-center font-mono">
+                                        {c.dateLabel}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )
                 ) : allUpcomingCelebrations.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-[#7a8b95] text-center border border-dashed border-[#eaeaec] rounded-xl bg-slate-50/30">
                         <Cake size={24} className="opacity-40 mb-2" />
