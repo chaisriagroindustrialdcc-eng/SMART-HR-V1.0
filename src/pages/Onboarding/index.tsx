@@ -872,9 +872,22 @@ export default function Onboarding() {
       hiringDate: emp.startDate,
       yos: '0 Yrs 0 Mos'
     };
+
+    const finalNewEmp = {
+      ...newEmp,
+      employeeId: newEmp.staffId,
+      name: `${newEmp.nameTh} (${newEmp.nameEn})`,
+      department: newEmp.dept,
+      position: newEmp.jobTitle,
+      avatar: newEmp.image,
+      status: 'Active',
+      hireDate: newEmp.hiringDate,
+      workStatus: 'Active'
+    };
     
-    dir.unshift(newEmp);
+    dir.unshift(finalNewEmp);
     localStorage.setItem('local_employee_directory', JSON.stringify(dir));
+    dbSync.write('employees', [finalNewEmp]).catch(console.error);
     
     const updatedRecords = records.map(r => r.id === emp.id ? { ...r, status: 'Completed', isTransferred: true } : r);
     saveToStorage(updatedRecords);

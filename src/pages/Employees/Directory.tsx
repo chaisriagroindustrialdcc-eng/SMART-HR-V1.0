@@ -11,6 +11,7 @@ import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
 import { DraggableModal } from '../../components/shared/DraggableModal';
 import { useLanguage } from '../../context/LanguageContext';
+import { dbSync } from '../../services/dbSync';
 import {
   ResponsiveContainer,
   PieChart as RechartsPieChart,
@@ -67,28 +68,242 @@ const LucideIcon = ({ name, size = 16, className = "", color, style, strokeWidth
 
 const INITIAL_EMPLOYEES = [
   { 
-    id: 1, staffId: 'EMP-24001', nameTh: 'สมชาย มุ่งมั่น', nameEn: 'Somchai Mungmun', nickName: 'ชาย (Chai)',
+    id: 1, staffId: 'EMP-24001', employeeId: 'EMP-24001', nameTh: 'สมชาย มุ่งมั่น', nameEn: 'Somchai Mungmun',
+    name: 'สมชาย มุ่งมั่น (Somchai Mungmun)', nickName: 'ชาย (Chai)',
     image: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80',
-    office: 'Headquarters', dept: 'Information Technology', section: 'Software Dev', jobTitle: 'Senior Fullstack Developer',
-    jobStatus: 'Permanent', workStatus: 'Active', effDate: '2020-01-15', hiringDate: '2020-01-15', yos: '4 Yrs 3 Mos',
-    idCard: '1100500123456', socialSec: 'Active', gender: 'Male', birthDate: '1990-05-20', age: 34, ageHiring: 30,
-    nationality: 'Thai', religion: 'Buddhism', marital: 'Single', kids: 0, military: 'Exempted', driving: 'Car License',
-    email: 'somchai.m@tamarindpro.com', phone: '081-234-5678',
-    addressId: '123/45 Sukhumvit Rd., Bangkok', addressPres: 'Same as ID', emerContact: 'Somsri Mungmun (Mother)', emerPhone: '089-876-5432', blood: 'O',
-    education: 'Bachelor Degree', major: 'Computer Engineering', bank: 'KBank', bankAcc: '012-3-45678-9',
-    termination: '', reason: ''
+    avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80',
+    office: 'Headquarters', dept: 'Information Technology', department: 'Information Technology',
+    section: 'Software Dev', jobTitle: 'Senior Fullstack Developer', position: 'Senior Fullstack Developer',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2020-01-15', hiringDate: '2020-01-15', hireDate: '2020-01-15',
+    yos: '4 Yrs 3 Mos', idCard: '1100500123456', socialSec: 'Active', gender: 'Male', birthDate: '1990-05-20',
+    age: 34, ageHiring: 30, nationality: 'Thai', religion: 'Buddhism', marital: 'Single', kids: 0, military: 'Exempted', driving: 'Car License',
+    email: 'somchai.m@tamarindpro.com', phone: '081-234-5678', addressId: '123/45 Sukhumvit Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Somsri Mungmun (Mother)', emerPhone: '089-876-5432', blood: 'O', education: 'Bachelor Degree', major: 'Computer Engineering',
+    bank: 'KBank', bankAcc: '012-3-45678-9', termination: '', reason: ''
   },
   { 
-    id: 2, staffId: 'EMP-22045', nameTh: 'วิภาดา แสงงาม', nameEn: 'Wipada Saengngam', nickName: 'วิ (Wi)',
+    id: 2, staffId: 'EMP-22045', employeeId: 'EMP-22045', nameTh: 'วิภาดา แสงงาม', nameEn: 'Wipada Saengngam',
+    name: 'วิภาดา แสงงาม (Wipada Saengngam)', nickName: 'วิ (Wi)',
     image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
-    office: 'Factory A', dept: 'Quality Assurance', section: 'QC Line', jobTitle: 'QA Manager',
-    jobStatus: 'Permanent', workStatus: 'Active', effDate: '2018-08-01', hiringDate: '2018-08-01', yos: '5 Yrs 8 Mos',
-    idCard: '3100500987654', socialSec: 'Active', gender: 'Female', birthDate: '1985-11-10', age: 38, ageHiring: 33,
-    nationality: 'Thai', religion: 'Buddhism', marital: 'Married', kids: 2, military: 'N/A', driving: 'Car License',
-    email: 'wipada.s@tamarindpro.com', phone: '085-555-1234',
-    addressId: '45 Phetchabun Rd., Phetchabun', addressPres: 'Same as ID', emerContact: 'Manop Saengngam (Husband)', emerPhone: '081-111-2222', blood: 'B',
-    education: 'Master Degree', major: 'Food Science', bank: 'SCB', bankAcc: '987-6-54321-0',
-    termination: '', reason: ''
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
+    office: 'Factory A', dept: 'Quality Assurance', department: 'Quality Assurance',
+    section: 'QC Line', jobTitle: 'QA Manager', position: 'QA Manager',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2018-08-01', hiringDate: '2018-08-01', hireDate: '2018-08-01',
+    yos: '5 Yrs 8 Mos', idCard: '3100500987654', socialSec: 'Active', gender: 'Female', birthDate: '1985-11-10',
+    age: 38, ageHiring: 33, nationality: 'Thai', religion: 'Buddhism', marital: 'Married', kids: 2, military: 'N/A', driving: 'Car License',
+    email: 'wipada.s@tamarindpro.com', phone: '085-555-1234', addressId: '45 Phetchabun Rd., Phetchabun', addressPres: 'Same as ID',
+    emerContact: 'Manop Saengngam (Husband)', emerPhone: '081-111-2222', blood: 'B', education: 'Master Degree', major: 'Food Science',
+    bank: 'SCB', bankAcc: '987-6-54321-0', termination: '', reason: ''
+  },
+  { 
+    id: 3, staffId: 'EMP-24003', employeeId: 'EMP-24003', nameTh: 'กิตติพงษ์ ยอดเยี่ยม', nameEn: 'Kittipong Yodyiem',
+    name: 'กิตติพงษ์ ยอดเยี่ยม (Kittipong Yodyiem)', nickName: 'กิต (Kit)',
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+    office: 'Headquarters', dept: 'Information Technology', department: 'Information Technology',
+    section: 'Infrastructure', jobTitle: 'IT Lead', position: 'IT Lead',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2018-06-01', hiringDate: '2018-06-01', hireDate: '2018-06-01',
+    yos: '6 Yrs', idCard: '1100500123403', socialSec: 'Active', gender: 'Male', birthDate: '1988-06-14',
+    age: 38, ageHiring: 30, nationality: 'Thai', religion: 'Buddhism', marital: 'Married', kids: 1, military: 'Completed', driving: 'Car License',
+    email: 'kittipong.y@chaisri.com', phone: '081-345-6789', addressId: '456/78 Rama 9 Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Nonglak Yodyiem (Wife)', emerPhone: '089-123-4567', blood: 'A', education: 'Bachelor Degree', major: 'Information Technology',
+    bank: 'KBank', bankAcc: '012-3-55555-9', termination: '', reason: ''
+  },
+  { 
+    id: 4, staffId: 'EMP-24004', employeeId: 'EMP-24004', nameTh: 'นภาลัย เรืองรอง', nameEn: 'Napalai Ruangrong',
+    name: 'นภาลัย เรืองรอง (Napalai Ruangrong)', nickName: 'ฟ้า (Fah)',
+    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80',
+    office: 'Factory A', dept: 'Production', department: 'Production',
+    section: 'Quality Control', jobTitle: 'Quality Auditor', position: 'Quality Auditor',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2022-06-25', hiringDate: '2022-06-25', hireDate: '2022-06-25',
+    yos: '4 Yrs', idCard: '1100500123404', socialSec: 'Active', gender: 'Female', birthDate: '1992-06-18',
+    age: 34, ageHiring: 30, nationality: 'Thai', religion: 'Buddhism', marital: 'Single', kids: 0, military: 'N/A', driving: 'Both',
+    email: 'napalai.r@chaisri.com', phone: '082-456-7890', addressId: '789/12 Charoen Krung Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Patsorn Ruangrong (Sister)', emerPhone: '085-234-5678', blood: 'B', education: 'Bachelor Degree', major: 'Food Science',
+    bank: 'SCB', bankAcc: '123-4-56789-0', termination: '', reason: ''
+  },
+  { 
+    id: 5, staffId: 'EMP-24005', employeeId: 'EMP-24005', nameTh: 'วิชัย ว่องไว', nameEn: 'Wichai Wongwai',
+    name: 'วิชัย ว่องไว (Wichai Wongwai)', nickName: 'ชัย (Chai)',
+    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
+    office: 'Factory A', dept: 'Logistics', department: 'Logistics',
+    section: 'Warehouse', jobTitle: 'Logistics Supervisor', position: 'Logistics Supervisor',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2020-06-15', hiringDate: '2020-06-15', hireDate: '2020-06-15',
+    yos: '6 Yrs', idCard: '1100500123405', socialSec: 'Active', gender: 'Male', birthDate: '1991-06-20',
+    age: 35, ageHiring: 29, nationality: 'Thai', religion: 'Buddhism', marital: 'Married', kids: 1, military: 'Completed', driving: 'Car License',
+    email: 'wichai.w@chaisri.com', phone: '083-567-8901', addressId: '101/23 Phaholyothin Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Pranee Wongwai (Mother)', emerPhone: '086-345-6789', blood: 'O', education: 'Bachelor Degree', major: 'Logistics Management',
+    bank: 'BBL', bankAcc: '234-5-67890-1', termination: '', reason: ''
+  },
+  { 
+    id: 6, staffId: 'EMP-24006', employeeId: 'EMP-24006', nameTh: 'สิรินทรา มีสุข', nameEn: 'Sirintra Meesook',
+    name: 'สิรินทรา มีสุข (Sirintra Meesook)', nickName: 'สิ (Si)',
+    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80',
+    office: 'Headquarters', dept: 'Human Resources', department: 'Human Resources',
+    section: 'Recruitment', jobTitle: 'HR Recruiter', position: 'HR Recruiter',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2023-06-12', hiringDate: '2023-06-12', hireDate: '2023-06-12',
+    yos: '3 Yrs', idCard: '1100500123406', socialSec: 'Active', gender: 'Female', birthDate: '1994-07-02',
+    age: 31, ageHiring: 28, nationality: 'Thai', religion: 'Buddhism', marital: 'Single', kids: 0, military: 'N/A', driving: 'Car License',
+    email: 'sirintra.m@chaisri.com', phone: '084-678-9012', addressId: '202/34 Ladprao Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Santi Meesook (Father)', emerPhone: '087-456-7890', blood: 'AB', education: 'Bachelor Degree', major: 'Human Resources',
+    bank: 'KBank', bankAcc: '012-3-67890-1', termination: '', reason: ''
+  },
+  { 
+    id: 7, staffId: 'EMP-24007', employeeId: 'EMP-24007', nameTh: 'ชลวิทย์ เก่งกาจ', nameEn: 'Chonlawit Kengkarj',
+    name: 'ชลวิทย์ เก่งกาจ (Chonlawit Kengkarj)', nickName: 'ชล (Chon)',
+    image: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=150&q=80',
+    office: 'Factory A', dept: 'Production', department: 'Production',
+    section: 'Assembly Line', jobTitle: 'Production Engineer', position: 'Production Engineer',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2017-06-20', hiringDate: '2017-06-20', hireDate: '2017-06-20',
+    yos: '9 Yrs', idCard: '1100500123407', socialSec: 'Active', gender: 'Male', birthDate: '1987-06-28',
+    age: 38, ageHiring: 29, nationality: 'Thai', religion: 'Buddhism', marital: 'Married', kids: 2, military: 'Completed', driving: 'Car License',
+    email: 'chonlawit.k@chaisri.com', phone: '085-789-0123', addressId: '303/45 Vibhavadi Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Malee Kengkarj (Mother)', emerPhone: '088-567-8901', blood: 'O', education: 'Bachelor Degree', major: 'Industrial Engineering',
+    bank: 'KBank', bankAcc: '012-3-78901-2', termination: '', reason: ''
+  },
+  { 
+    id: 8, staffId: 'EMP-24008', employeeId: 'EMP-24008', nameTh: 'ธนพล มั่งคั่ง', nameEn: 'Thanaphol Mangkang',
+    name: 'ธนพล มั่งคั่ง (Thanaphol Mangkang)', nickName: 'พล (Phol)',
+    image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80',
+    office: 'Headquarters', dept: 'Finance & Accounting', department: 'Finance & Accounting',
+    section: 'Treasury', jobTitle: 'Finance Director', position: 'Finance Director',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2015-04-10', hiringDate: '2015-04-10', hireDate: '2015-04-10',
+    yos: '11 Yrs', idCard: '1100500123408', socialSec: 'Active', gender: 'Male', birthDate: '1980-03-12',
+    age: 46, ageHiring: 35, nationality: 'Thai', religion: 'Buddhism', marital: 'Married', kids: 3, military: 'Completed', driving: 'Car License',
+    email: 'thanaphol.m@chaisri.com', phone: '086-890-1234', addressId: '404/56 Sukhumvit 101, Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Nipa Mangkang (Wife)', emerPhone: '089-678-9012', blood: 'A', education: 'Master Degree', major: 'Finance',
+    bank: 'SCB', bankAcc: '123-4-78901-2', termination: '', reason: ''
+  },
+  { 
+    id: 9, staffId: 'EMP-24009', employeeId: 'EMP-24009', nameTh: 'พิมพพรรณ สวยงาม', nameEn: 'Pimphan Suayngam',
+    name: 'พิมพพรรณ สวยงาม (Pimphan Suayngam)', nickName: 'พิม (Pim)',
+    image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+    office: 'Headquarters', dept: 'Information Technology', department: 'Information Technology',
+    section: 'Innovation Team', jobTitle: 'Software Engineer', position: 'Software Engineer',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2024-01-10', hiringDate: '2024-01-10', hireDate: '2024-01-10',
+    yos: '2 Yrs', idCard: '1100500123409', socialSec: 'Active', gender: 'Female', birthDate: '1998-09-05',
+    age: 27, ageHiring: 25, nationality: 'Thai', religion: 'Buddhism', marital: 'Single', kids: 0, military: 'N/A', driving: 'None',
+    email: 'pimphan.s@chaisri.com', phone: '087-901-2345', addressId: '505/67 Ramkhamhaeng Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Aree Suayngam (Mother)', emerPhone: '081-789-0123', blood: 'B', education: 'Bachelor Degree', major: 'Computer Science',
+    bank: 'KBank', bankAcc: '012-3-89012-3', termination: '', reason: ''
+  },
+  { 
+    id: 10, staffId: 'EMP-24010', employeeId: 'EMP-24010', nameTh: 'อัญชลี รักษ์ดี', nameEn: 'Anchalee Rakdee',
+    name: 'อัญชลี รักษ์ดี (Anchalee Rakdee)', nickName: 'แอน (Ann)',
+    image: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=150&q=80',
+    office: 'Factory A', dept: 'Quality Assurance', department: 'Quality Assurance',
+    section: 'QA Audit', jobTitle: 'QA Inspector', position: 'QA Inspector',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2021-03-15', hiringDate: '2021-03-15', hireDate: '2021-03-15',
+    yos: '5 Yrs', idCard: '1100500123410', socialSec: 'Active', gender: 'Female', birthDate: '1993-12-25',
+    age: 32, ageHiring: 27, nationality: 'Thai', religion: 'Buddhism', marital: 'Single', kids: 0, military: 'N/A', driving: 'Car License',
+    email: 'anchalee.r@chaisri.com', phone: '088-012-3456', addressId: '606/78 Srinakarin Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Prasert Rakdee (Father)', emerPhone: '082-890-1234', blood: 'O', education: 'Bachelor Degree', major: 'Biotechnology',
+    bank: 'SCB', bankAcc: '123-4-89012-3', termination: '', reason: ''
+  },
+  { 
+    id: 11, staffId: 'EMP-24011', employeeId: 'EMP-24011', nameTh: 'พงษ์ศักดิ์ ศรีสุข', nameEn: 'Pongsak Srisook',
+    name: 'พงษ์ศักดิ์ ศรีสุข (Pongsak Srisook)', nickName: 'พงษ์ (Pong)',
+    image: 'https://images.unsplash.com/photo-1542909168-82c3e7fdca5c?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1542909168-82c3e7fdca5c?auto=format&fit=crop&w=150&q=80',
+    office: 'Factory A', dept: 'Production', department: 'Production',
+    section: 'Maintenance', jobTitle: 'Maintenance Supervisor', position: 'Maintenance Supervisor',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2019-11-01', hiringDate: '2019-11-01', hireDate: '2019-11-01',
+    yos: '6 Yrs 7 Mos', idCard: '1100500123411', socialSec: 'Active', gender: 'Male', birthDate: '1986-07-15',
+    age: 39, ageHiring: 32, nationality: 'Thai', religion: 'Buddhism', marital: 'Married', kids: 1, military: 'Completed', driving: 'Both',
+    email: 'pongsak.s@chaisri.com', phone: '089-123-4567', addressId: '707/89 Navamin Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Sunee Srisook (Mother)', emerPhone: '083-901-2345', blood: 'A', education: 'Bachelor Degree', major: 'Mechanical Engineering',
+    bank: 'BBL', bankAcc: '234-5-89012-3', termination: '', reason: ''
+  },
+  { 
+    id: 12, staffId: 'EMP-24012', employeeId: 'EMP-24012', nameTh: 'ศิริพร อุดมดี', nameEn: 'Siriporn Udomdee',
+    name: 'ศิริพร อุดมดี (Siriporn Udomdee)', nickName: 'พร (Porn)',
+    image: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=150&q=80',
+    office: 'Headquarters', dept: 'Human Resources', department: 'Human Resources',
+    section: 'Compensation', jobTitle: 'HR Specialist', position: 'HR Specialist',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2022-09-01', hiringDate: '2022-09-01', hireDate: '2022-09-01',
+    yos: '3 Yrs 9 Mos', idCard: '1100500123412', socialSec: 'Active', gender: 'Female', birthDate: '1991-02-18',
+    age: 35, ageHiring: 31, nationality: 'Thai', religion: 'Buddhism', marital: 'Single', kids: 0, military: 'N/A', driving: 'Car License',
+    email: 'siriporn.u@chaisri.com', phone: '081-456-7890', addressId: '808/90 Ratchadapisek Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Vichit Udomdee (Father)', emerPhone: '084-012-3456', blood: 'O', education: 'Bachelor Degree', major: 'Psychology',
+    bank: 'KBank', bankAcc: '012-3-90123-4', termination: '', reason: ''
+  },
+  { 
+    id: 13, staffId: 'EMP-24013', employeeId: 'EMP-24013', nameTh: 'เกรียงไกร มีพรพิพัฒน์', nameEn: 'Kriangkrai Meepornpipat',
+    name: 'เกรียงไกร มีพรพิพัฒน์ (Kriangkrai Meepornpipat)', nickName: 'เกรียง (Krieng)',
+    image: 'https://images.unsplash.com/photo-1500048993953-d23a436266cf?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1500048993953-d23a436266cf?auto=format&fit=crop&w=150&q=80',
+    office: 'Headquarters', dept: 'Information Technology', department: 'Information Technology',
+    section: 'Cyber Security', jobTitle: 'Security Analyst', position: 'Security Analyst',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2023-01-15', hiringDate: '2023-01-15', hireDate: '2023-01-15',
+    yos: '3 Yrs 5 Mos', idCard: '1100500123413', socialSec: 'Active', gender: 'Male', birthDate: '1995-10-30',
+    age: 30, ageHiring: 27, nationality: 'Thai', religion: 'Buddhism', marital: 'Single', kids: 0, military: 'Completed', driving: 'Car License',
+    email: 'kriangkrai.m@chaisri.com', phone: '082-567-8901', addressId: '909/11 Lat Phrao, Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Sudarat Meepornpipat (Sister)', emerPhone: '085-123-4567', blood: 'B', education: 'Bachelor Degree', major: 'Computer Engineering',
+    bank: 'SCB', bankAcc: '123-4-90123-4', termination: '', reason: ''
+  },
+  { 
+    id: 14, staffId: 'EMP-24014', employeeId: 'EMP-24014', nameTh: 'พัชราภรณ์ วงศ์สุวรรณ', nameEn: 'Patcharaporn Wongsuwan',
+    name: 'พัชราภรณ์ วงศ์สุวรรณ (Patcharaporn Wongsuwan)', nickName: 'พัช (Pat)',
+    image: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=150&q=80',
+    office: 'Headquarters', dept: 'Finance & Accounting', department: 'Finance & Accounting',
+    section: 'Accounts Payable', jobTitle: 'Junior Accountant', position: 'Junior Accountant',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2025-02-01', hiringDate: '2025-02-01', hireDate: '2025-02-01',
+    yos: '1 Yr 4 Mos', idCard: '1100500123414', socialSec: 'Active', gender: 'Female', birthDate: '2000-05-12',
+    age: 26, ageHiring: 25, nationality: 'Thai', religion: 'Buddhism', marital: 'Single', kids: 0, military: 'N/A', driving: 'None',
+    email: 'patcharaporn.w@chaisri.com', phone: '083-678-9012', addressId: '111/22 Sukhumvit Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Prasit Wongsuwan (Father)', emerPhone: '086-456-7890', blood: 'A', education: 'Bachelor Degree', major: 'Accounting',
+    bank: 'SCB', bankAcc: '123-4-01234-5', termination: '', reason: ''
+  },
+  { 
+    id: 15, staffId: 'EMP-24015', employeeId: 'EMP-24015', nameTh: 'สมชาย รักดี', nameEn: 'Somchai Rakdee',
+    name: 'สมชาย รักดี (Somchai Rakdee)', nickName: 'สมชาย (Somchai)',
+    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80',
+    office: 'Headquarters', dept: 'Human Resources', department: 'Human Resources',
+    section: 'HR Operations', jobTitle: 'HR Manager', position: 'HR Manager',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2019-06-15', hiringDate: '2019-06-15', hireDate: '2019-06-15',
+    yos: '7 Yrs', idCard: '1100500123415', socialSec: 'Active', gender: 'Male', birthDate: '1990-06-05',
+    age: 36, ageHiring: 29, nationality: 'Thai', religion: 'Buddhism', marital: 'Married', kids: 1, military: 'Completed', driving: 'Car License',
+    email: 'somchai.r@chaisri.com', phone: '084-789-0123', addressId: '222/33 Rama 3 Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Somsri Rakdee (Wife)', emerPhone: '087-567-8901', blood: 'O', education: 'Bachelor Degree', major: 'Human Resource Management',
+    bank: 'KBank', bankAcc: '012-3-01234-5', termination: '', reason: ''
+  },
+  { 
+    id: 16, staffId: 'EMP-24016', employeeId: 'EMP-24016', nameTh: 'จิรายุ ทองแท้', nameEn: 'Jirayu Thongtae',
+    name: 'จิรายุ ทองแท้ (Jirayu Thongtae)', nickName: 'เจ (Jay)',
+    image: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=150&q=80',
+    office: 'Factory A', dept: 'Production', department: 'Production',
+    section: 'Assembly', jobTitle: 'Assembly Supervisor', position: 'Assembly Supervisor',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2020-03-01', hiringDate: '2020-03-01', hireDate: '2020-03-01',
+    yos: '6 Yrs 3 Mos', idCard: '1100500123416', socialSec: 'Active', gender: 'Male', birthDate: '1992-04-10',
+    age: 34, ageHiring: 28, nationality: 'Thai', religion: 'Buddhism', marital: 'Married', kids: 1, military: 'Completed', driving: 'Car License',
+    email: 'jirayu.t@chaisri.com', phone: '085-890-1234', addressId: '333/44 Suksawat Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Thongdee Thongtae (Father)', emerPhone: '088-678-9012', blood: 'B', education: 'High School', major: 'General Science',
+    bank: 'BBL', bankAcc: '234-5-01234-5', termination: '', reason: ''
+  },
+  { 
+    id: 17, staffId: 'EMP-24017', employeeId: 'EMP-24017', nameTh: 'อรทัย เจริญยิ่ง', nameEn: 'Orathai Charoenying',
+    name: 'อรทัย เจริญยิ่ง (Orathai Charoenying)', nickName: 'ปลา (Pla)',
+    image: 'https://images.unsplash.com/photo-1563306406-e66174fa3787?auto=format&fit=crop&w=150&q=80',
+    avatar: 'https://images.unsplash.com/photo-1563306406-e66174fa3787?auto=format&fit=crop&w=150&q=80',
+    office: 'Factory A', dept: 'Quality Assurance', department: 'Quality Assurance',
+    section: 'QA Admin', jobTitle: 'QA Coordinator', position: 'QA Coordinator',
+    jobStatus: 'Permanent', workStatus: 'Active', status: 'Active', effDate: '2024-05-15', hiringDate: '2024-05-15', hireDate: '2024-05-15',
+    yos: '2 Yrs 1 Mo', idCard: '1100500123417', socialSec: 'Active', gender: 'Female', birthDate: '1997-08-22',
+    age: 28, ageHiring: 26, nationality: 'Thai', religion: 'Buddhism', marital: 'Single', kids: 0, military: 'N/A', driving: 'Car License',
+    email: 'orathai.c@chaisri.com', phone: '086-901-2345', addressId: '444/55 Charan Sanitwong Rd., Bangkok', addressPres: 'Same as ID',
+    emerContact: 'Somboon Charoenying (Father)', emerPhone: '089-789-0123', blood: 'AB', education: 'Bachelor Degree', major: 'Food Chemistry',
+    bank: 'SCB', bankAcc: '123-4-12345-6', termination: '', reason: ''
   }
 ];
 
@@ -478,19 +693,41 @@ export default function EmployeeDirectory() {
   const [modalState, setModalState] = useState<{ isOpen: boolean; user: any }>({ isOpen: false, user: null });
   const [toast, setToast] = useState<string | null>(null);
 
-  // Load from local storage or set initial data to prevent losing sample records
+  const [loading, setLoading] = useState(true);
+
+  // Load from dbSync (Firestore primary, GAS Sheet secondary, LocalStorage seed tertiary)
   useEffect(() => {
-    const saved = localStorage.getItem('local_employee_directory');
-    if (saved) {
+    const fetchEmployees = async () => {
+      setLoading(true);
       try {
-        setUsers(JSON.parse(saved));
-      } catch (e) {
+        console.log("[Directory] Loading employees from dbSync...");
+        const response = await dbSync.read('employees');
+        if (response && response.status === 'success' && response.data && Array.isArray(response.data.items)) {
+          let loaded = response.data.items;
+          if (loaded.length === 0) {
+            console.log("[Directory] Database empty. Seeding INITIAL_EMPLOYEES...");
+            await dbSync.write('employees', INITIAL_EMPLOYEES);
+            setUsers(INITIAL_EMPLOYEES);
+            localStorage.setItem('local_employee_directory', JSON.stringify(INITIAL_EMPLOYEES));
+          } else {
+            const items = loaded.map((u: any) => ({
+              ...u,
+              id: isNaN(u.id) ? u.id : Number(u.id)
+            }));
+            setUsers(items);
+            localStorage.setItem('local_employee_directory', JSON.stringify(items));
+          }
+        } else {
+          setUsers(INITIAL_EMPLOYEES);
+        }
+      } catch (err) {
+        console.error("Failed to load employees from dbSync:", err);
         setUsers(INITIAL_EMPLOYEES);
+      } finally {
+        setLoading(false);
       }
-    } else {
-      setUsers(INITIAL_EMPLOYEES);
-      localStorage.setItem('local_employee_directory', JSON.stringify(INITIAL_EMPLOYEES));
-    }
+    };
+    fetchEmployees();
   }, []);
 
   const saveToStorage = (newRecords: any[]) => {
@@ -562,16 +799,69 @@ export default function EmployeeDirectory() {
   // Handlers
   const handleOpenModal = (user = null) => setModalState({ isOpen: true, user });
 
-  const handleSaveUser = (userData: any) => {
-      if (userData.id) {
-          // Edit Mode
-          const updated = users.map(u => u.id === userData.id ? userData : u);
-          saveToStorage(updated);
-      } else {
-          // Create Mode
-          const maxId = users.length > 0 ? Math.max(...users.map(u => u.id)) : 0;
-          const updated = [...users, { ...userData, id: maxId + 1 }];
-          saveToStorage(updated);
+  const handleSaveUser = async (userData: any) => {
+      try {
+          if (userData.id) {
+              // Edit Mode
+              const updatedItem = {
+                ...userData,
+                id: isNaN(userData.id) ? userData.id : Number(userData.id),
+                name: `${userData.nameTh || ''} (${userData.nameEn || ''})`.trim(),
+                employeeId: userData.staffId || userData.employeeId,
+                status: userData.workStatus || userData.status,
+                position: userData.jobTitle || userData.position,
+                department: userData.dept || userData.department,
+                avatar: userData.image || userData.avatar || 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80',
+                image: userData.image || userData.avatar || 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80',
+                isActive: userData.workStatus === 'Active'
+              };
+              
+              const updatedList = users.map(u => u.id === userData.id ? updatedItem : u);
+              saveToStorage(updatedList);
+              await dbSync.update('employees', [updatedItem]);
+              
+              Swal.fire({
+                  icon: 'success',
+                  title: 'สำเร็จ',
+                  text: 'บันทึกแก้ไขข้อมูลประวัติพนักงานเรียบร้อยแล้ว',
+                  confirmButtonColor: '#212c46'
+              });
+          } else {
+              // Create Mode
+              const maxId = users.length > 0 ? Math.max(...users.map(u => isNaN(u.id) ? 0 : Number(u.id))) : 0;
+              const newId = maxId + 1;
+              const newItem = {
+                ...userData,
+                id: newId,
+                name: `${userData.nameTh || ''} (${userData.nameEn || ''})`.trim(),
+                employeeId: userData.staffId || userData.employeeId,
+                status: userData.workStatus || userData.status,
+                position: userData.jobTitle || userData.position,
+                department: userData.dept || userData.department,
+                avatar: userData.image || userData.avatar || 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80',
+                image: userData.image || userData.avatar || 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=150&q=80',
+                isActive: userData.workStatus === 'Active'
+              };
+              
+              const updatedList = [...users, newItem];
+              saveToStorage(updatedList);
+              await dbSync.write('employees', [newItem]);
+              
+              Swal.fire({
+                  icon: 'success',
+                  title: 'สำเร็จ',
+                  text: 'บันทึกประวัติพนักงานใหม่เรียบร้อยแล้ว',
+                  confirmButtonColor: '#212c46'
+              });
+          }
+      } catch (err) {
+          console.error("Failed to save employee to dbSync:", err);
+          Swal.fire({
+              icon: 'error',
+              title: 'เกิดข้อผิดพลาดในการบันทึก',
+              text: 'ไม่สามารถบันทึกลง Google Sheet และ Firebase ได้ในขณะนี้ ระบบจัดเก็บเฉพาะที่',
+              confirmButtonColor: '#212c46'
+          });
       }
   };
 
@@ -587,16 +877,27 @@ export default function EmployeeDirectory() {
           cancelButtonText: 'Cancel',
           confirmButtonColor: '#932c2e',
           cancelButtonColor: '#7a8b95'
-      }).then(result => {
+      }).then(async (result) => {
           if (result.isConfirmed) {
-              const updated = users.filter(u => u.id !== id);
-              saveToStorage(updated);
-              Swal.fire({
-                  icon: 'success',
-                  title: 'ลบเรียบร้อยแล้ว',
-                  text: 'ระบบทำการลบประวัติพนักงานออกเรียบร้อยสมบูรณ์',
-                  confirmButtonColor: '#212c46'
-              });
+              try {
+                  const updatedList = users.filter(u => u.id !== id);
+                  saveToStorage(updatedList);
+                  await dbSync.delete('employees', [{ id }]);
+                  Swal.fire({
+                      icon: 'success',
+                      title: 'ลบเรียบร้อยแล้ว',
+                      text: 'ระบบทำการลบประวัติพนักงานออกเรียบร้อยสมบูรณ์ ทั้งระบบริการและฐานข้อมูลบนคลาวด์',
+                      confirmButtonColor: '#212c46'
+                  });
+              } catch (err) {
+                  console.error("Failed to delete employee from dbSync:", err);
+                  Swal.fire({
+                      icon: 'error',
+                      title: 'จำกัดขอบข่ายการลบข้อมูล',
+                      text: 'ไม่สามารถลบข้อมูลจากคลาวด์ได้ขณะนี้ คอร์เน็ตเวิร์กออฟไลน์',
+                      confirmButtonColor: '#212c46'
+                  });
+              }
           }
       });
   };
