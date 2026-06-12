@@ -45,7 +45,16 @@ const GLOBAL_SHEETS_CONFIG = {
     // ADMINISTRATION (System)
     'SystemLogs': ['id', 'userId', 'action', 'details', 'ipAddress', 'createdAt'],
     'SystemConfig': ['id', 'category', 'key', 'value', 'description', 'updatedAt'],
-    'CalendarEvents': ['id', 'date', 'title', 'time', 'type', 'priority', 'status', 'createdAt', 'updatedAt']
+    'CalendarEvents': ['id', 'date', 'title', 'time', 'type', 'priority', 'status', 'createdAt', 'updatedAt'],
+
+    // PERFORMANCE KPIs
+    'kpi_department': ['id', 'kpiCode', 'name', 'department', 'weight', 'targetValue', 'actualValue', 'progress', 'period', 'status', 'description', 'createdAt', 'updatedAt'],
+    'kpi_individual': ['id', 'kpiCode', 'employeeId', 'employeeName', 'department', 'name', 'weight', 'targetValue', 'actualValue', 'progress', 'period', 'status', 'description', 'createdAt', 'updatedAt'],
+
+    // ADDITIONAL COLLECTIONS
+    'employees': ['id', 'employeeId', 'name', 'department', 'position', 'email', 'avatar', 'birthDate', 'hireDate', 'status', 'createdAt', 'updatedAt'],
+    'salary_master': ['id', 'empId', 'nameTh', 'nameEn', 'image', 'dept', 'jobTitle', 'payType', 'baseSalary', 'workingDays', 'allowancePos', 'allowanceIncentive', 'allowanceTravel', 'allowanceMeal', 'allowanceAccommodation', 'allowanceRisk', 'otherIncomes', 'deductTax', 'deductSSO', 'deductHousing', 'deductLoan', 'otherDeductions', 'bank', 'bankAcc', 'status', 'lastUpdate', 'history'],
+    'external_activities': ['id', 'title', 'category', 'date', 'budget', 'participants', 'status', 'partner', 'deliverable']
 };
 
 function setupDatabase() {
@@ -55,11 +64,25 @@ function setupDatabase() {
   for (let name in sheetsConfig) {
     let sheet = ss.getSheetByName(name);
     if (!sheet) {
-      sheet = ss.insertSheet(name);
+      try {
+        sheet = ss.insertSheet(name);
+        SpreadsheetApp.flush();
+      } catch (e) {
+        sheet = ss.getSheetByName(name);
+        if (!sheet) {
+          let sheets = ss.getSheets();
+          for (let i = 0; i < sheets.length; i++) {
+            if (sheets[i].getName().toLowerCase().trim() === name.toLowerCase().trim()) {
+              sheet = sheets[i];
+              break;
+            }
+          }
+        }
+      }
     }
     // ตั้งค่าหัวตาราง (Headers)
     const headers = sheetsConfig[name];
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    safeGetRange(sheet, 1, 1, 1, headers.length).setValues([headers])
       .setFontWeight("bold")
       .setBackground("#e8ecef")
       .setFontColor("black");
@@ -68,7 +91,11 @@ function setupDatabase() {
     sheet.setFrozenRows(1);
     
     // Auto-resize คอลัมน์
-    sheet.autoResizeColumns(1, headers.length);
+    try {
+      sheet.autoResizeColumns(1, headers.length);
+    } catch (err) {
+      Logger.log("Auto-resize failed for " + name);
+    }
   }
 
   // สร้าง User ตัวอย่างสำหรับ Admin (ถ้ายังไม่มี)
@@ -260,8 +287,28 @@ function writeData(sheet, data, headersObj) {
   // Automatically expand headers to include any new properties present in our data object
   ensureHeadersExist(sheet, data[0]);
 
-  var sheetHeaders = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
+  const lastCol = Math.max(1, sheet.getLastColumn());
+  var sheetHeaders = [];
+  try {
+    sheetHeaders = safeGetRange(sheet, 1, 1, 1, lastCol).getValues()[0];
+  } catch (err) {
+    // Empty sheet
+  }
   sheetHeaders = sheetHeaders.map(function(h) { return String(h).trim(); }).filter(Boolean);
+  
+  // High-reliability safeguard: If sheetHeaders is empty, build it from the first item's keys!
+  if (sheetHeaders.length === 0) {
+    sheetHeaders = Object.keys(data[0]);
+    if (sheetHeaders.length === 0) {
+      sheetHeaders = ['id', 'createdAt', 'updatedAt'];
+    }
+    
+    safeGetRange(sheet, 1, 1, 1, sheetHeaders.length).setValues([sheetHeaders])
+      .setFontWeight("bold")
+      .setBackground("#e6b8af")
+      .setFontColor("black");
+    sheet.setFrozenRows(1);
+  }
   
   const rows = data.map(item => {
     return sheetHeaders.map(h => {
@@ -271,8 +318,10 @@ function writeData(sheet, data, headersObj) {
     });
   });
   
-  const lastRow = sheet.getLastRow();
-  sheet.getRange(lastRow + 1, 1, rows.length, sheetHeaders.length).setValues(rows);
+  const lastRow = Math.max(1, sheet.getLastRow());
+  
+  // Write content safely using safeGetRange
+  safeGetRange(sheet, lastRow + 1, 1, rows.length, sheetHeaders.length).setValues(rows);
   
   const maxRows = sheet.getMaxRows();
   const currentTotalRows = lastRow + rows.length;
@@ -348,7 +397,7 @@ function deleteData(sheet, data, headersObj) {
 
   if (deletedCount > 0) {
     sheet.clearContents();
-    sheet.getRange(1, 1, newValues.length, headers.length).setValues(newValues);
+    safeGetRange(sheet, 1, 1, newValues.length, headers.length).setValues(newValues);
   }
 
   return createResponse("success", `Deleted ${deletedCount} rows`, null, headersObj);
@@ -478,6 +527,42 @@ function createResponse(status, message, data, headersObj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+function ensureDimensions(sheet, requiredRows, requiredCols) {
+  try {
+    var maxRows = Math.max(1, sheet.getMaxRows());
+    var maxColumns = Math.max(1, sheet.getMaxColumns());
+    
+    var rRows = Math.max(1, requiredRows);
+    var rCols = Math.max(1, requiredCols);
+    
+    var modified = false;
+    if (rRows > maxRows) {
+      sheet.insertRowsAfter(maxRows, rRows - maxRows);
+      modified = true;
+    }
+    if (rCols > maxColumns) {
+      sheet.insertColumnsAfter(maxColumns, rCols - maxColumns);
+      modified = true;
+    }
+    
+    if (modified) {
+      SpreadsheetApp.flush();
+    }
+  } catch (err) {
+    Logger.log("ensureDimensions failed: " + err.toString());
+  }
+}
+
+function safeGetRange(sheet, row, col, numRows, numCols) {
+  var rRow = Math.max(1, row);
+  var rCol = Math.max(1, col);
+  var rNumRows = Math.max(1, numRows);
+  var rNumCols = Math.max(1, numCols);
+  
+  ensureDimensions(sheet, rRow + rNumRows - 1, rCol + rNumCols - 1);
+  return sheet.getRange(rRow, rCol, rNumRows, rNumCols);
+}
+
 function getSpreadsheet() {
   try {
     const props = PropertiesService.getScriptProperties();
@@ -499,12 +584,18 @@ function getSpreadsheet() {
 
 function findSheetCaseInsensitive(ss, name) {
   if (!name) return null;
+  
+  // Try exact match first
+  var sheet = ss.getSheetByName(name);
+  if (sheet) return sheet;
+  
+  // Try case-insensitive and alphanumeric-only characters normalization
   const sheets = ss.getSheets();
-  const lowerName = name.toLowerCase().replace(/\s/g, '');
+  const lowerName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
   
   for (let i = 0; i < sheets.length; i++) {
     const sheetName = sheets[i].getName();
-    if (sheetName.toLowerCase().replace(/\s/g, '') === lowerName) {
+    if (sheetName.toLowerCase().replace(/[^a-z0-9]/g, '') === lowerName) {
       return sheets[i];
     }
   }
@@ -517,8 +608,47 @@ function provisionSheetAndHeaders(ss, sheetName, data) {
   let isNew = false;
   
   if (!sheet) {
-    sheet = ss.insertSheet(sheetName);
-    isNew = true;
+    const lock = LockService.getScriptLock();
+    var hasLock = false;
+    try {
+      // Wait for up to 15 seconds to handle concurrent creations of the same sheet
+      hasLock = lock.tryLock(15000);
+      
+      // Inside lock, check again because another thread might have created it
+      sheet = findSheetCaseInsensitive(ss, sheetName);
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+        SpreadsheetApp.flush();
+        isNew = true;
+      }
+    } catch (e) {
+      // If insertion fails (e.g., sheet already exists due to caching / unicode variations / invisible chars)
+      // Retrieve it using standard fallback methods
+      sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        let sheets = ss.getSheets();
+        for (let i = 0; i < sheets.length; i++) {
+          let sName = sheets[i].getName();
+          if (sName.toLowerCase().trim() === sheetName.toLowerCase().trim() ||
+              sName.toLowerCase().replace(/[^a-z0-9]/g, '') === sheetName.toLowerCase().replace(/[^a-z0-9]/g, '')) {
+            sheet = sheets[i];
+            break;
+          }
+        }
+      }
+      isNew = false;
+    } finally {
+      if (hasLock) {
+        try {
+          lock.releaseLock();
+        } catch (e) {}
+      }
+    }
+  }
+  
+  if (!sheet) {
+    Logger.log("Failed to provision sheet for name: " + sheetName);
+    return null;
   }
   
   let columns = GLOBAL_SHEETS_CONFIG[sheetName];
@@ -543,7 +673,7 @@ function provisionSheetAndHeaders(ss, sheetName, data) {
   }
   
   if (columns && columns.length > 0) {
-    sheet.getRange(1, 1, 1, columns.length).setValues([columns])
+    safeGetRange(sheet, 1, 1, 1, columns.length).setValues([columns])
       .setFontWeight("bold")
       .setBackground("#e6b8af")
       .setFontColor("black");
@@ -565,7 +695,7 @@ function ensureHeadersExist(sheet, sampleItem) {
   const lastCol = Math.max(1, sheet.getLastColumn());
   let sheetHeaders = [];
   try {
-    sheetHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    sheetHeaders = safeGetRange(sheet, 1, 1, 1, lastCol).getValues()[0];
   } catch (err) {
     // Empty sheet
   }
@@ -583,7 +713,7 @@ function ensureHeadersExist(sheet, sampleItem) {
   
   if (missingKeys.length > 0) {
     const finalHeaders = sheetHeaders.concat(missingKeys);
-    sheet.getRange(1, 1, 1, finalHeaders.length).setValues([finalHeaders])
+    safeGetRange(sheet, 1, 1, 1, finalHeaders.length).setValues([finalHeaders])
       .setFontWeight("bold")
       .setBackground("#e6b8af")
       .setFontColor("black");

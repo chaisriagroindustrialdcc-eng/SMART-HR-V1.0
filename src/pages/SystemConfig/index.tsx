@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { DraggableModal } from '../../components/shared/DraggableModal';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
-import { initGoogleAuth, googleSignIn, logoutGoogle } from '../../services/googleAuth';
 import { 
   Settings2, 
   Building2, 
@@ -117,7 +116,7 @@ const TABS = [
   { id: 'departments', label: 'Departments', icon: 'Building2', title: 'Departments Registry', desc: 'Manage organizational units and coding structures.' },
   { id: 'leaveAutoApproval', label: 'Leave Auto-Approval', icon: 'ShieldCheck', title: 'LEAVE AUTO-APPROVAL CONFIG', desc: 'Configure automatic approval rules for employee leave requests based on remaining balances.' },
   { id: 'reportPrintLayout', label: 'Report Print Layout', icon: 'Printer', title: 'PRINT TEMPLATES & REPORT CONFIG', desc: 'Configure automatic repeating headers, footers, classifications and logo parameters.' },
-  { id: 'googleSheets', label: 'Google Sheets', icon: 'Database', title: 'GOOGLE SHEETS SYNC', desc: 'Synchronize and format Google Sheets database configurations.' }
+  { id: 'securityTimeout', label: 'Security & Timeout', icon: 'Timer', title: 'SECURITY TIMEOUT & CODES CONFIG', desc: 'Configure automatic session expiry, diagnostic bypass, and security warning intervals.' }
 ];
 
 // --- Helper Components ---
@@ -247,19 +246,15 @@ export default function SystemConfig() {
       pages: [], prefix: '', format: 'YYMMDD', sequenceDigit: 3, reset: 'Daily', note: '' 
   });
 
-  // --- Google Sheets Integration State ---
-  const [user, setUser] = useState<any>(null);
-  const [authToken, setAuthToken] = useState<string | null>(null);
-  const [spreadsheetId, setSpreadsheetId] = useState('1L7smTyoFDIRaQk-NDivYTMwgQ52V4ezSfagWOIR6x0s');
-  const [isFormatting, setIsFormatting] = useState(false);
-  const [formatLogs, setFormatLogs] = useState<string[]>([]);
-
   // --- Session Timeout Control States ---
-  const [cfgSessionDuration, setCfgSessionDuration] = useState<number>(() => {
+  const [sessionTimeoutEnabled, setSessionTimeoutEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('cfg_session_timeout_enabled') !== 'false';
+  });
+  const [sessionDurationSec, setSessionDurationSec] = useState<number>(() => {
     const saved = localStorage.getItem('cfg_session_duration_sec');
     return saved ? parseInt(saved, 10) : 900;
   });
-  const [cfgWarnThreshold, setCfgWarnThreshold] = useState<number>(() => {
+  const [warnThresholdSec, setWarnThresholdSec] = useState<number>(() => {
     const saved = localStorage.getItem('cfg_warn_threshold_sec');
     return saved ? parseInt(saved, 10) : 120;
   });
@@ -370,300 +365,22 @@ export default function SystemConfig() {
     });
   };
 
-  const handleUpdateSessionConfig = (newDuration: number, newThreshold: number) => {
-    if (newThreshold >= newDuration) {
-      Swal.fire({
-        icon: 'error',
-        title: 'กำหนดช่วงเวลาแจ้งเตือนไม่ถูกต้อง',
-        text: 'หน้าต่างแจ้งเตือนเซสชันหมดอายุต้องสั้นกว่าเวลารวมเซสชันสูงสุดนะคะ',
-        confirmButtonColor: '#932c2e'
-      });
-      return;
-    }
+  const handleSaveSecurityTimeoutConfig = () => {
+    localStorage.setItem('cfg_session_timeout_enabled', String(sessionTimeoutEnabled));
+    localStorage.setItem('cfg_session_duration_sec', String(sessionDurationSec));
+    localStorage.setItem('cfg_warn_threshold_sec', String(warnThresholdSec));
 
-    setCfgSessionDuration(newDuration);
-    setCfgWarnThreshold(newThreshold);
-    localStorage.setItem('cfg_session_duration_sec', String(newDuration));
-    localStorage.setItem('cfg_warn_threshold_sec', String(newThreshold));
-
-    // Notify same window of configuration change
     window.dispatchEvent(new Event('session-config-updated'));
 
     Swal.fire({
       toast: true,
       position: 'top-end',
       icon: 'success',
-      title: 'บันทึกเซสชันความปลอดภัยเรียบร้อยแล้วค่ะ',
+      title: 'บันทึกการตั้งค่าปะทะระยะเวลาเซสชั่นสำเร็จ!',
       showConfirmButton: false,
-      timer: 2000,
-      background: '#f8f9fa'
+      timer: 3000,
+      timerProgressBar: true
     });
-  };
-
-  useEffect(() => {
-    const unsubscribe = initGoogleAuth(
-      (authUser, token) => {
-        setUser(authUser);
-        setAuthToken(token);
-      },
-      () => {
-        setUser(null);
-        setAuthToken(null);
-      }
-    );
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, []);
-
-  const handleGoogleSignIn = async () => {
-    try {
-      const result = await googleSignIn();
-      if (result) {
-        setUser(result.user);
-        setAuthToken(result.accessToken);
-        Swal.fire({
-          title: 'Signed In Successfully',
-          text: `Connected to Google Account: ${result.user.email}`,
-          icon: 'success',
-          confirmButtonColor: '#212c46'
-        });
-      }
-    } catch (error: any) {
-      console.error('Sign in error:', error);
-      Swal.fire({
-        title: 'Authentication Failed',
-        text: error.message || 'Could not authenticate with Google.',
-        icon: 'error',
-        confirmButtonColor: '#932c2e'
-      });
-    }
-  };
-
-  const handleDisconnect = async () => {
-    const result = await Swal.fire({
-      title: 'Disconnect Google Account?',
-      text: 'This will clear the current Google Sheets access token session.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#932c2e',
-      cancelButtonColor: '#7a8b95',
-      confirmButtonText: 'Yes, Disconnect'
-    });
-
-    if (result.isConfirmed) {
-      await logoutGoogle();
-      setUser(null);
-      setAuthToken(null);
-      Swal.fire('Disconnected', 'Successfully signed out from Google account.', 'success');
-    }
-  };
-
-  const handleRunSetup = async () => {
-    if (!spreadsheetId.trim()) {
-      Swal.fire('Error', 'Please enter a valid Spreadsheet ID', 'error');
-      return;
-    }
-
-    if (!authToken) {
-      Swal.fire('Authentication Required', 'Please Sign in with Google first to authorize formatting.', 'warning');
-      return;
-    }
-
-    // Explicit confirmation dialog
-    const confirmed = await Swal.fire({
-      title: 'Initialize Sheet Formatting?',
-      text: 'This will construct table schemas, freeze headers, and apply layout styles to the target spreadsheet.',
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#b58c4f',
-      cancelButtonColor: '#7a8b95',
-      confirmButtonText: 'Confirm and Start'
-    });
-
-    if (!confirmed.isConfirmed) return;
-
-    setIsFormatting(true);
-    setFormatLogs(['Starting initialization flow...']);
-
-    try {
-      const log = (msg: string) => setFormatLogs(prev => [...prev, msg]);
-
-      log('Fetching spreadsheet metadata details...');
-      const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
-        headers: { Authorization: `Bearer ${authToken}` }
-      });
-
-      if (!metaRes.ok) {
-        throw new Error(`Invalid Spreadsheet ID or lacks permission: ${metaRes.statusText}`);
-      }
-
-      let meta = await metaRes.json();
-      let existingSheets = meta.sheets || [];
-      let existingSheetTitles = existingSheets.map((s: any) => s.properties.title);
-      log(`Read spreadsheet: "${meta.properties?.title || 'WMS Spreadsheet'}"`);
-      log(`Found existing sheet tabs: [${existingSheetTitles.join(', ')}]`);
-
-      const targetSheets = [
-        { name: 'CalendarEvents', headers: ['id', 'date', 'title', 'time', 'type', 'priority', 'status', 'createdAt', 'updatedAt'] },
-        { name: 'Users', headers: ['id', 'employeeId', 'name', 'role', 'idCard', 'avatar', 'status', 'createdAt', 'updatedAt'] },
-        { name: 'AccessLogs', headers: ['id', 'userId', 'action', 'details', 'ipAddress', 'createdAt'] },
-        { name: 'SystemConfig', headers: ['id', 'category', 'key', 'value', 'description', 'updatedAt'] }
-      ];
-
-      // Create missing sheets
-      const addRequests: any[] = [];
-      for (const target of targetSheets) {
-        if (!existingSheetTitles.includes(target.name)) {
-          log(`Adding missing tab section: ${target.name}`);
-          addRequests.push({
-            addSheet: {
-              properties: {
-                title: target.name
-              }
-            }
-          });
-        }
-      }
-
-      if (addRequests.length > 0) {
-        const updateRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ requests: addRequests })
-        });
-        if (!updateRes.ok) {
-          throw new Error('Could not create missing tabs database.');
-        }
-        log('Created missing sheet tables successfully. Updating schema caches...');
-        
-        // Refresh metadata properties
-        const updatedMetaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`, {
-          headers: { Authorization: `Bearer ${authToken}` }
-        });
-        const updatedMeta = await updatedMetaRes.json();
-        existingSheets = updatedMeta.sheets || [];
-      } else {
-        log('All core tabs are already present. No expansion necessary.');
-      }
-
-      // Map sheet titles to sheet ids
-      const sheetIdMap = new Map<string, number>();
-      for (const s of existingSheets) {
-        sheetIdMap.set(s.properties.title, s.properties.sheetId);
-      }
-
-      // Prepare layout updates (freeze rows & format background color)
-      log('Building design batches: row freezing & header column highlight styling (#d0e0e3)...');
-      const formatRequests: any[] = [];
-      for (const target of targetSheets) {
-        const sId = sheetIdMap.get(target.name);
-        if (sId === undefined) continue;
-
-        // Freeze row 1
-        formatRequests.push({
-          updateSheetProperties: {
-            properties: {
-              sheetId: sId,
-              gridProperties: {
-                frozenRowCount: 1
-              }
-            },
-            fields: 'gridProperties.frozenRowCount'
-          }
-        });
-
-        // Set header styling with #d0e0e3 background and bold dark text
-        formatRequests.push({
-          repeatCell: {
-            range: {
-              sheetId: sId,
-              startRowIndex: 0,
-              endRowIndex: 1,
-              startColumnIndex: 0,
-              endColumnIndex: target.headers.length
-            },
-            cell: {
-              userEnteredFormat: {
-                backgroundColor: {
-                  red: 208 / 255,   // #d0 -> 208
-                  green: 224 / 255, // #e0 -> 224
-                  blue: 227 / 255   // #e3 -> 227
-                },
-                textFormat: {
-                  bold: true,
-                  fontSize: 10,
-                  foregroundColor: {
-                    red: 33 / 255,   // #21 -> 33
-                    green: 44 / 255,  // #2c -> 44
-                    blue: 70 / 255    // #46 -> 70
-                  }
-                },
-                horizontalAlignment: 'CENTER',
-                verticalAlignment: 'MIDDLE'
-              }
-            },
-            fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'
-          }
-        });
-      }
-
-      if (formatRequests.length > 0) {
-        const formatRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ requests: formatRequests })
-        });
-        if (!formatRes.ok) throw new Error('Failed applying layout patterns.');
-        log('Executed layout properties formatting successfully.');
-      }
-
-      // Write column headers
-      log('Injecting sheet field headers...');
-      const valueUpdates: any[] = [];
-      for (const target of targetSheets) {
-        valueUpdates.push({
-          range: `${target.name}!A1:I1`,
-          values: [target.headers]
-        });
-      }
-
-      const writeRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          valueInputOption: 'RAW',
-          data: valueUpdates
-        })
-      });
-
-      if (!writeRes.ok) throw new Error('Failed writing table column titles.');
-      
-      log('Writing setup logs: ALL OK.');
-      log('Spreadsheet auto-formatting finished successfully. Tables are fully ready for the App!');
-      Swal.fire({
-        title: 'Sheet Configuration Complete',
-        text: 'Landed headers, froze top row, and applied background color #d0e0e3 successfully.',
-        icon: 'success',
-        confirmButtonColor: '#b58c4f'
-      });
-
-    } catch (err: any) {
-      console.error(err);
-      setFormatLogs(prev => [...prev, `[FAIL] Error occurred: ${err.message}`]);
-      Swal.fire('Formatting Error', err.message || 'An unexpected error occurred.', 'error');
-    } finally {
-      setIsFormatting(false);
-    }
   };
 
   const activeTabData: any = TABS.find(t => t.id === activeTab);
@@ -801,7 +518,7 @@ export default function SystemConfig() {
                             <div className="flex-1 text-left overflow-hidden">
                                 <p className={`text-[13px] font-black uppercase tracking-tight truncate ${activeTab === tab.id ? 'text-[#d7d7d7]' : 'text-[#212c46]'}`}>{tab.label}</p>
                                 <p className={`text-[11px] font-bold uppercase tracking-widest mt-0.5 truncate ${activeTab === tab.id ? 'text-[#b7a159]' : 'text-[#7a8b95]'}`}>
-                                    {tab.id === 'leaveAutoApproval' ? (leaveAutoApproveEnabled ? 'ENABLED' : 'DISABLED') : tab.id === 'reportPrintLayout' ? 'CONFIGURED' : `${(data[tab.id] || []).length} Items`}
+                                    {tab.id === 'securityTimeout' ? (sessionTimeoutEnabled ? 'ENABLED' : 'DISABLED') : tab.id === 'leaveAutoApproval' ? (leaveAutoApproveEnabled ? 'ENABLED' : 'DISABLED') : tab.id === 'reportPrintLayout' ? 'CONFIGURED' : `${(data[tab.id] || []).length} Items`}
                                 </p>
                             </div>
                             {activeTab === tab.id && <div className="absolute right-3 w-1.5 h-1.5 rounded-full bg-[#b7a159] shadow-[0_0_8px_#b7a159]"></div>}
@@ -811,189 +528,7 @@ export default function SystemConfig() {
 
                 {/* CONTENT LIST */}
                 <div className="lg:col-span-9 bg-white rounded-3xl shadow-lg border border-[#eaeaec] overflow-hidden flex flex-col animate-fadeIn">
-                    {activeTab === 'googleSheets' ? (
-                        <div className="flex-1 p-8 space-y-8 bg-[#f8f9fa]">
-                            {/* AUTHENTICATION SECTION */}
-                            <div className="bg-white p-8 rounded-2xl border border-[#eaeaec] shadow-sm space-y-6">
-                                <div>
-                                    <h3 className="text-[18px] font-black text-[#212c46] uppercase tracking-wider">Authentication</h3>
-                                    <p className="text-[12px] font-bold text-[#7a8b95] uppercase tracking-normal mt-1">Connect your Google Account to authorize database synchronizations and create sheets automatically.</p>
-                                </div>
-                                
-                                <div className="p-5 border border-[#eaeaec] rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50">
-                                    <div className="flex items-center gap-4">
-                                        {user ? (
-                                            <>
-                                                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#b58c4f] shrink-0">
-                                                    <img src={user.photoURL || "https://lh3.googleusercontent.com/a/default-user=s96-c"} alt="User Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                                </div>
-                                                <div>
-                                                    <p className="font-black text-sm text-[#212c46]">{user.displayName || "Advance Group DCC"}</p>
-                                                    <p className="text-xs font-bold font-mono text-[#7a8b95]">{user.email || "advancegroup.dcc@gmail.com"}</p>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <div className="w-12 h-12 rounded-full bg-[#212c46]/5 border border-[#212c46]/10 flex items-center justify-center text-[#212c46]/40 text-sm font-black shrink-0 font-mono">
-                                                   DCC
-                                                </div>
-                                                <div>
-                                                    <p className="font-black text-sm text-[#212c46]">No Account Connected</p>
-                                                    <p className="text-xs font-bold font-mono text-[#7a8b95]">Click Sign in with Google to authenticate your session.</p>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        {user ? (
-                                            <button onClick={handleDisconnect} className="px-6 py-2.5 rounded-xl text-[#932c2e] hover:text-white border-2 border-[#932c2e]/40 hover:bg-[#932c2e] hover:border-[#932c2e] font-black text-[11px] uppercase tracking-wider transition-all duration-300">
-                                                Disconnect
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={handleGoogleSignIn}
-                                                className="flex items-center gap-3 px-6 py-2.5 bg-white hover:bg-slate-50 text-[#1f1f1f] font-black text-[11px] uppercase tracking-wider border-2 border-[#747775] rounded-xl hover:shadow-sm transition-all active:scale-95 duration-200"
-                                            >
-                                                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-4 h-4 block shrink-0">
-                                                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-                                                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                                                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                                                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                                                    <path fill="none" d="M0 0h48v48H0z"></path>
-                                                </svg>
-                                                <span>Sign in with Google</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* SESSION SECURITY CONFIGURATION SECTION */}
-                            <div className="bg-white p-8 rounded-2xl border border-[#eaeaec] shadow-sm space-y-6">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 shrink-0 shadow-sm">
-                                        <ShieldAlert size={24} />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-[18px] font-black text-[#212c46] uppercase tracking-wider flex items-center gap-2">
-                                            <span>Session Security Control / สิทธิ์การรักษาความปลอดภัยเซสชัน</span>
-                                        </h3>
-                                        <p className="text-[12px] font-bold text-[#7a8b95] uppercase tracking-normal mt-1 leading-relaxed">
-                                            กำหนดเงื่อนไขเวลาความปลอดภัยของเซสชันผู้ใช้งานระบบ (Inactivity Session Expiry) เพื่อป้องกันสิทธิ์เข้าถึงข้อมูล Google Sheet ค้างในระบบ
-                                        </p>
-                                    </div>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50/50 p-6 rounded-2xl border border-[#eaeaec]/60">
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[11px] font-black text-[#212c46] uppercase tracking-widest block flex items-center gap-2">
-                                            <Timer size={14} className="text-[#4d87a8]" />
-                                            <span>Session Duration (เวลาก่อนเซสชันหมดอายุ)</span>
-                                        </label>
-                                        <select
-                                            value={cfgSessionDuration}
-                                            onChange={(e) => {
-                                                const val = parseInt(e.target.value, 10);
-                                                handleUpdateSessionConfig(val, cfgWarnThreshold);
-                                            }}
-                                            className="w-full bg-white border border-[#eaeaec] rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-[#b58c4f] shadow-sm text-[#212c46] cursor-pointer"
-                                        >
-                                            <option value="30">30 Seconds (ทดสอบความเร็ว / Fast 30s Demo)</option>
-                                            <option value="60">1 Minute (1 นาที)</option>
-                                            <option value="300">5 Minutes (5 นาที)</option>
-                                            <option value="900">15 Minutes (15 นาที - ทั่วไป)</option>
-                                            <option value="1800">30 Minutes (30 นาที)</option>
-                                            <option value="3600">1 Hour (1 ชั่วโมง)</option>
-                                        </select>
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase mt-1">
-                                            ระยะเวลาที่ระบบจะปล่อยให้เซสชันค้างอยู่โดยไม่มีความเคลื่อนไหว
-                                        </span>
-                                    </div>
-
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[11px] font-black text-[#212c46] uppercase tracking-widest block flex items-center gap-2">
-                                            <AlertTriangle size={14} className="text-amber-600" />
-                                            <span>Warning Window (หน้าต่างเวลาแจ้งเตือนล่วงหน้า)</span>
-                                        </label>
-                                        <select
-                                            value={cfgWarnThreshold}
-                                            onChange={(e) => {
-                                                const val = parseInt(e.target.value, 10);
-                                                handleUpdateSessionConfig(cfgSessionDuration, val);
-                                            }}
-                                            className="w-full bg-white border border-[#eaeaec] rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-[#b58c4f] shadow-sm text-[#212c46] cursor-pointer"
-                                        >
-                                            <option value="10">10 Seconds (ทดสอบความเร็ว / Fast 10s Demo)</option>
-                                            <option value="30">30 Seconds (30 วินาที)</option>
-                                            <option value="60">60 Seconds (1 นาที)</option>
-                                            <option value="120">120 Seconds (2 นาที - แนะนำ)</option>
-                                            <option value="300">300 Seconds (5 นาที)</option>
-                                        </select>
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase mt-1">
-                                            จำนวนวินาทีย้อนกลับช่วงท้ายสำหรับเริ่มกะพริบลดเวลาแจ้งเตือน
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white border border-[#eaeaec] rounded-xl p-5 flex gap-3 text-xs leading-relaxed text-[#7a8b95] font-medium shadow-inner">
-                                    <Info size={16} className="text-[#3f809e] shrink-0 mt-0.5" />
-                                    <div>
-                                        <span className="block font-black text-[#212c46] uppercase mb-1 tracking-wider text-[10px]">Developer Guide / คำแนะนำในการทดสอบระบบแจ้งเตือนเซสชัน</span>
-                                        คุณสามารถเลือกค่าเซสชันเป็น <strong className="text-[#212c46]">30 Seconds</strong> และหน้าต่างแจ้งเตือนเป็น <strong className="text-[#212c46]">10 Seconds</strong> จากนั้นทำการปล่อยระบบทิ้งไว้ประมาณ 20 วินาที ระบบจะดึงเสียงกะพริบแจ้งเตือนความปลอดภัย <strong className="text-[#212c46]">Security alert chimes</strong> และแสดงกล่อง Pop-up ดึงเวลาให้ท่านตัดสินใจค่ะ
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* SHEET CONFIGURATION */}
-                            <div className="bg-white p-8 rounded-2xl border border-[#eaeaec] shadow-sm space-y-6">
-                                <div>
-                                    <h3 className="text-[18px] font-black text-[#212c46] uppercase tracking-wider">Sheet Setup & Formatting</h3>
-                                    <p className="text-[12px] font-bold text-[#7a8b95] uppercase tracking-normal mt-1">Automatically format the target spreadsheet (Adds headers, freezes top row, and highlights column #d0e0e3).</p>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[11px] font-black text-[#212c46] uppercase tracking-widest block">Spreadsheet ID</label>
-                                        <div className="flex flex-col sm:flex-row gap-3">
-                                            <input
-                                                type="text"
-                                                value={spreadsheetId}
-                                                onChange={(e) => setSpreadsheetId(e.target.value)}
-                                                disabled={isFormatting}
-                                                placeholder="Enter Google Spreadsheet ID..."
-                                                className="flex-1 bg-white border border-[#eaeaec] rounded-xl px-4 py-3 text-xs font-bold font-mono outline-none focus:border-[#b58c4f] shadow-sm text-[#212c46]"
-                                            />
-                                            <button
-                                                onClick={handleRunSetup}
-                                                disabled={isFormatting}
-                                                className="px-8 py-3 bg-[#b58c4f] hover:bg-[#a57c3f] text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
-                                            >
-                                                {isFormatting ? (
-                                                    <>
-                                                        <Loader2 className="w-4 h-4 animate-spin" /> Formatting...
-                                                    </>
-                                                ) : (
-                                                    'Run Setup'
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    {formatLogs.length > 0 && (
-                                        <div className="bg-[#1e293b] text-slate-200 p-4 rounded-xl font-mono text-[11px] space-y-1.5 max-h-48 overflow-y-auto">
-                                            {formatLogs.map((log, index) => (
-                                                <div key={index} className="flex gap-2">
-                                                    <span className="text-emerald-400 font-bold">►</span>
-                                                    <span>{log}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ) : activeTab === 'reportPrintLayout' ? (
+                    {activeTab === 'reportPrintLayout' ? (
                         <div className="flex-1 p-8 space-y-8 bg-[#f8f9fa] animate-fadeIn">
                             {/* PRINT EMBEDDABLE TEMPLATES CONFIGURATION PANEL */}
                             <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-8">
@@ -1472,6 +1007,103 @@ export default function SystemConfig() {
                                         className="bg-[#212c46] hover:bg-[#212c46]/90 text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer border border-[#212c46]"
                                     >
                                         <Save size={14} className="text-[#b58c4f]"/> Save Configuration
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : activeTab === 'securityTimeout' ? (
+                        <div className="flex-1 p-8 space-y-8 bg-[#f8f9fa] animate-fadeIn font-sans">
+                            {/* SECURITY & SESSION TIMEOUT CONFIGURATION PANEL */}
+                            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-8">
+                                <div className="border-b border-slate-100 pb-4">
+                                    <h3 className="text-[18px] font-black text-[#212c46] uppercase tracking-wider flex items-center gap-3">
+                                        <Timer className="text-rose-600 animate-pulse" size={24} /> Security Timeout Control Centre
+                                    </h3>
+                                    <p className="text-[12px] font-bold text-slate-400 uppercase tracking-normal mt-1">Configure user activity monitoring, warning chimes, diagnostic bypass, and automatic session duration parameters.</p>
+                                </div>
+
+                                {/* MASTER WATCHER SWITCH */}
+                                <div className="flex items-center justify-between p-6 bg-slate-50 border border-slate-200 rounded-2xl shadow-sm hover:border-[#b58c4f]/40 transition-all duration-300">
+                                    <div>
+                                        <h4 className="text-xs font-black text-[#212c46] uppercase tracking-wider">Enable Session Timeout Watcher (เปิด/ปิด ระบบตรวจจับเวลาหมดอายุ)</h4>
+                                        <p className="text-[11px] text-slate-400 font-bold uppercase mt-1">When active, users are automatically warned and logged out after periods of total inactivity.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSessionTimeoutEnabled(!sessionTimeoutEnabled)}
+                                        className={`w-14 h-8 flex items-center rounded-full p-1 transition-all duration-300 cursor-pointer outline-none relative ${sessionTimeoutEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                                    >
+                                        <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-all duration-300 ease-in-out ${sessionTimeoutEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
+
+                                {/* PARAMETERS CONFIG CONTAINER */}
+                                <div className={`space-y-6 ${sessionTimeoutEnabled ? 'opacity-100' : 'opacity-40 pointer-events-none select-none transition-all duration-300'}`}>
+                                    <div>
+                                        <h4 className="text-[11px] font-black text-[#212c46] uppercase tracking-widest mb-3 border-b pb-1">1. Time & Interval Thresholds</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Max Session Absolute Expiry (ระยะเวลาหมดอายุเซสชันทั้งหมด)</label>
+                                                <div className="flex items-center gap-3">
+                                                    <input 
+                                                        type="number" 
+                                                        min="10" 
+                                                        max="86400" 
+                                                        value={sessionDurationSec} 
+                                                        onChange={(e) => setSessionDurationSec(Math.max(10, parseInt(e.target.value, 10) || 10))} 
+                                                        className="w-24 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-[#212c46] text-center font-mono outline-none focus:border-[#b58c4f]" 
+                                                    />
+                                                    <div>
+                                                        <p className="text-[11px] font-bold text-slate-600 uppercase">Seconds Of Permitted Inactivity</p>
+                                                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">E.g., 900 seconds is 15 minutes. Session restarts on any keystroke or click action.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Warning Pre-Lock Interval (ช่องเวลาตักเตือนล่วงหน้า)</label>
+                                                <div className="flex items-center gap-3">
+                                                    <input 
+                                                        type="number" 
+                                                        min="5" 
+                                                        max="1800" 
+                                                        value={warnThresholdSec} 
+                                                        onChange={(e) => setWarnThresholdSec(Math.max(5, parseInt(e.target.value, 10) || 5))} 
+                                                        className="w-24 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-[#212c46] text-center font-mono outline-none focus:border-[#b58c4f]" 
+                                                    />
+                                                    <div>
+                                                        <p className="text-[11px] font-bold text-slate-600 uppercase">Warning Window (Seconds)</p>
+                                                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">E.g., 120 seconds means showing the countdown modal 2 minutes before signing out.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="text-[11px] font-black text-[#212c46] uppercase tracking-widest mb-3 border-b pb-1">2. Diagnostic Safeguards & Status</h4>
+                                        <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-3">
+                                            <div className="p-2 rounded-xl bg-orange-500/10 text-orange-600">
+                                                <Info size={18} />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-black text-slate-700 uppercase">Interactive Acoustic Warning Beeps</p>
+                                                <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-1 font-thai font-sans">
+                                                    ระบบจะเล่นคลื่นเสียงซายน์สเตอริโอตักเตือนเมื่อระบบตรวจเจอความเสี่ยงของเซสชันที่ใกล้หมดเวลาเพื่อให้มั่นใจว่าระบบไม่มีความประเจิดประเจ้อเกินไป
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ACTION ENGINE ROW */}
+                                <div className="border-t border-slate-100 pt-6 flex justify-end gap-3 font-sans">
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveSecurityTimeoutConfig}
+                                        className="bg-[#212c46] hover:bg-[#212c46]/90 text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer border border-[#212c46]"
+                                    >
+                                        <Save size={14} className="text-[#b58c4f]"/> Save Security Settings
                                     </button>
                                 </div>
                             </div>

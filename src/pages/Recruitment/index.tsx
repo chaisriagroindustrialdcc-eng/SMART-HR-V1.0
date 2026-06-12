@@ -5,7 +5,7 @@ import {
   UserPlus, Search, Plus, Trash2, X, Save, Edit2, CheckCircle2, AlertCircle, 
   Briefcase, FileText, Send, Clock, UserCheck, Inbox, ArrowRight, TrendingUp, HelpCircle,
   LayoutGrid, Users, Award, ShieldCheck, Mail, MapPin, Eye, Pencil, Trash, Filter, Info, 
-  Settings, ChevronLeft, ChevronRight, Compass, Settings2, Sliders, Database
+  Settings, ChevronLeft, ChevronRight, Compass, Settings2, Sliders, Database, Calendar
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
@@ -199,12 +199,18 @@ function UserGuidePanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
 export default function Recruitment() {
   const { tab } = useParams<{ tab: string }>();
   const navigate = useNavigate();
+  const { language } = useLanguage();
   
   // Tabs: 'requests' | 'planning' | 'openings' | 'candidates' | 'settings'
   const [activeTab, setActiveTab] = useState<'requests' | 'planning' | 'openings' | 'candidates' | 'settings'>('candidates');
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Custom dropdown & date filters
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('All');
+  const [selectedMonth, setSelectedMonth] = useState<string>('All');
+  const [selectedYear, setSelectedYear] = useState<string>('All');
   
   // Real database synchronous state
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -362,34 +368,98 @@ export default function Recruitment() {
     loadAllRecruitmentData();
   }, []);
 
+  // Helper for date extraction
+  const checkMonthYear = (dateStr: string | undefined, mFilter: string, yFilter: string) => {
+    if (!dateStr) return true;
+    const parts = dateStr.split('-');
+    const y = parts[0];
+    const m = parts[1];
+    const mMatch = mFilter === 'All' || m === mFilter;
+    const yMatch = yFilter === 'All' || y === yFilter;
+    return mMatch && yMatch;
+  };
+
   // Filter computation rules
   const filteredCandidates = useMemo(() => {
-    return candidates.filter(c => 
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [candidates, searchTerm]);
+    return candidates.filter(c => {
+      const textMatch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        c.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        c.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        c.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const statusMatch = selectedStatusFilter === 'All' || c.stage === selectedStatusFilter;
+      const dateMatch = checkMonthYear(c.dateApplied, selectedMonth, selectedYear);
+      return textMatch && statusMatch && dateMatch;
+    });
+  }, [candidates, searchTerm, selectedStatusFilter, selectedMonth, selectedYear]);
 
   const filteredOpenings = useMemo(() => {
-    return openings.filter(op => 
-      op.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      op.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (op.salaryRange && op.salaryRange.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (op.description && op.description.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }, [openings, searchTerm]);
+    return openings.filter(op => {
+      const textMatch = op.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        op.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (op.salaryRange && op.salaryRange.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                        (op.description && op.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      const statusMatch = selectedStatusFilter === 'All' || op.status === selectedStatusFilter;
+      const dateMatch = checkMonthYear(op.postedDate, selectedMonth, selectedYear);
+      return textMatch && statusMatch && dateMatch;
+    });
+  }, [openings, searchTerm, selectedStatusFilter, selectedMonth, selectedYear]);
 
   const filteredRequests = useMemo(() => {
-    return requests.filter(req => 
-      req.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.requestedBy.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.priority.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.status.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [requests, searchTerm]);
+    return requests.filter(req => {
+      const textMatch = req.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        req.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        req.requestedBy.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        req.priority.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        req.status.toLowerCase().includes(searchTerm.toLowerCase());
+      const statusMatch = selectedStatusFilter === 'All' || req.status === selectedStatusFilter;
+      const dateMatch = checkMonthYear(req.targetDate, selectedMonth, selectedYear);
+      return textMatch && statusMatch && dateMatch;
+    });
+  }, [requests, searchTerm, selectedStatusFilter, selectedMonth, selectedYear]);
+
+  const recruitmentStatusInfo = useMemo(() => {
+    if (activeTab === 'candidates') {
+      const counts: Record<string, number> = { All: candidates.length, Applied: 0, Interview: 0, Offered: 0, Hired: 0 };
+      candidates.forEach(c => { if (c.stage in counts) counts[c.stage]++; });
+      return { options: ['All', 'Applied', 'Interview', 'Offered', 'Hired'], counts };
+    }
+    if (activeTab === 'openings') {
+      const counts: Record<string, number> = { All: openings.length, Active: 0, Draft: 0, Expired: 0 };
+      openings.forEach(o => { if (o.status in counts) counts[o.status]++; });
+      return { options: ['All', 'Active', 'Draft', 'Expired'], counts };
+    }
+    if (activeTab === 'requests') {
+      const counts: Record<string, number> = { All: requests.length, Pending: 0, Approved: 0, Rejected: 0 };
+      requests.forEach(r => { if (r.status in counts) counts[r.status]++; });
+      return { options: ['All', 'Pending', 'Approved', 'Rejected'], counts };
+    }
+    return { options: ['All'], counts: { All: 0 } };
+  }, [activeTab, candidates, openings, requests]);
+
+  const yearsList = useMemo(() => {
+    const yrs = new Set<string>();
+    candidates.forEach(c => { if (c.dateApplied) yrs.add(c.dateApplied.split('-')[0]); });
+    openings.forEach(o => { if (o.postedDate) yrs.add(o.postedDate.split('-')[0]); });
+    requests.forEach(r => { if (r.targetDate) yrs.add(r.targetDate.split('-')[0]); });
+    yrs.add('2026');
+    return ['All', ...Array.from(yrs).sort()];
+  }, [candidates, openings, requests]);
+
+  const months = useMemo(() => [
+    { value: 'All', label_en: 'All Months', label_th: 'ทุกเดือน' },
+    { value: '01', label_en: 'January', label_th: 'มกราคม' },
+    { value: '02', label_en: 'February', label_th: 'กุมภาพันธ์' },
+    { value: '03', label_en: 'March', label_th: 'มีนาคม' },
+    { value: '04', label_en: 'April', label_th: 'เมษายน' },
+    { value: '05', label_en: 'May', label_th: 'พฤษภาคม' },
+    { value: '06', label_en: 'June', label_th: 'มิถุนายน' },
+    { value: '07', label_en: 'July', label_th: 'กรกฎาคม' },
+    { value: '08', label_en: 'August', label_th: 'สิงหาคม' },
+    { value: '09', label_en: 'September', label_th: 'กันยายน' },
+    { value: '10', label_en: 'October', label_th: 'ตุลาคม' },
+    { value: '11', label_en: 'November', label_th: 'พฤศจิกายน' },
+    { value: '12', label_en: 'December', label_th: 'ธันวาคม' }
+  ], []);
 
   const itemsForPagination = useMemo(() => {
     if (activeTab === 'candidates') return filteredCandidates;
@@ -618,31 +688,87 @@ export default function Recruitment() {
           
           {/* SEARCH BAR & GENERAL FILTERS */}
           {activeTab !== 'settings' && (
-            <div className="px-6 py-4 border-b border-[#eaeaec] bg-[#f8f9fa] flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
-              <div className="flex items-center gap-3 w-full md:w-auto">
-                <div className="relative flex-1 md:w-80">
-                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7a8b95]" />
+            <div className="px-6 py-5 border-b border-[#eaeaec] bg-[#f8f9fa] flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4 shrink-0 transition-all">
+              <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                {/* Search input with lens */}
+                <div className="relative w-full md:w-64 min-w-[200px]">
+                  <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#7a8b95]" />
                   <input 
                     type="text" 
                     value={searchTerm} 
                     onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
-                    placeholder="Search applicant name, job keywords, specialty..." 
-                    className="w-full pl-11 pr-6 py-2 border border-[#eaeaec] rounded-full text-[12px] font-bold outline-none focus:border-[#709654] bg-white text-[#212c46] shadow-sm transition-colors" 
+                    placeholder={language === 'TH' ? "ค้นหาข้อมูลผู้สมัคร, ตำแหน่ง..." : "Search applicant, position..."} 
+                    className="w-full pl-10 pr-4 py-2 border border-[#eaeaec] rounded-xl text-xs font-bold outline-none focus:border-[#709654] bg-white text-[#212c46] shadow-xs" 
                   />
                 </div>
+
+                {/* Dropdown status filter with count badges (only for tabs with status/stages) */}
+                {activeTab !== 'planning' && (
+                  <div className="bg-white border border-[#eaeaec] px-3 py-1.5 rounded-xl shadow-xs flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase text-[#525f7a] tracking-wider shrink-0 flex items-center gap-1 font-mono">
+                      <CheckCircle2 size={13} className="text-[#657f4d]" /> STATUS
+                    </span>
+                    <select
+                      value={selectedStatusFilter}
+                      onChange={(e) => { setSelectedStatusFilter(e.target.value); setCurrentPage(1); }}
+                      className="bg-[#f8f9fc] border border-[#eaeaec] px-2 py-1 rounded-lg text-[11px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654] min-w-[120px]"
+                    >
+                      {recruitmentStatusInfo.options.map(opt => (
+                        <option key={opt} value={opt}>
+                          {language === 'TH' ? (opt === 'All' ? 'สถานะทั้งหมด' : opt) : opt} ({recruitmentStatusInfo.counts[opt] || 0})
+                        </option>
+                      ))}
+                    </select>
+                    <span className="shrink-0 bg-[#212c46] text-white font-mono text-[9px] px-1.5 py-0.5 rounded-md font-black min-w-[20px] text-center">
+                      {recruitmentStatusInfo.counts[selectedStatusFilter] || recruitmentStatusInfo.counts['All'] || 0}
+                    </span>
+                  </div>
+                )}
+
+                {/* Month & Year Date Picker selectors */}
+                <div className="bg-white border border-[#eaeaec] px-3 py-1.5 rounded-xl shadow-xs flex items-center justify-between gap-1.5">
+                  <span className="text-[10px] font-black uppercase text-[#525f7a] tracking-wider shrink-0 flex items-center gap-1 font-mono">
+                    <Calendar size={13} className="text-[#b58c4f]" /> SCHEDULED
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <select
+                      value={selectedMonth}
+                      onChange={(e) => { setSelectedMonth(e.target.value); setCurrentPage(1); }}
+                      className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-1 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+                    >
+                      <option value="All">{language === 'TH' ? 'ทุกเดือน' : 'All Months'}</option>
+                      {months.filter(m => m.value !== 'All').map(m => (
+                        <option key={m.value} value={m.value}>
+                          {language === 'TH' ? m.label_th : m.label_en}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => { setSelectedYear(e.target.value); setCurrentPage(1); }}
+                      className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-1 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+                    >
+                      <option value="All">{language === 'TH' ? 'ทุกปี' : 'All'}</option>
+                      {yearsList.filter(y => y !== 'All').map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 {activeTab === 'candidates' && (
-                  <div className="flex bg-[#f8f9fa] border border-[#eaeaec] p-1 rounded-full shadow-sm inline-flex">
-                    <button onClick={() => setViewMode('kanban')} className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all flex items-center gap-1.5 cursor-pointer ${viewMode === 'kanban' ? 'bg-[#212c46] text-white shadow-md' : 'text-[#7a8b95]'}`}>
-                      <LayoutGrid size={12} /> Kanban
+                  <div className="flex bg-white border border-[#eaeaec] p-1 rounded-xl shadow-xs">
+                    <button onClick={() => setViewMode('kanban')} className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 cursor-pointer ${viewMode === 'kanban' ? 'bg-[#212c46] text-white shadow-xs' : 'text-[#7a8b95]'}`}>
+                      <LayoutGrid size={11} /> Kanban
                     </button>
-                    <button onClick={() => setViewMode('list')} className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all flex items-center gap-1.5 cursor-pointer ${viewMode === 'list' ? 'bg-[#212c46] text-white shadow-md' : 'text-[#7a8b95]'}`}>
-                      <FileText size={12} /> List Matrix
+                    <button onClick={() => setViewMode('list')} className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center gap-1 cursor-pointer ${viewMode === 'list' ? 'bg-[#212c46] text-white shadow-xs' : 'text-[#7a8b95]'}`}>
+                      <FileText size={11} /> List
                     </button>
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+              <div className="flex items-center gap-2 w-full xl:w-auto justify-end">
                 {activeTab === 'candidates' && (
                   <button 
                     onClick={() => handleOpenCandidateModal(null)} 

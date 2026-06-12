@@ -98,6 +98,23 @@ const sumSafe = (...vals: (number | undefined | null)[]) => {
   return vals.reduce((acc: number, cur) => acc + (Number(cur) || 0), 0);
 };
 
+const parseArraySafe = (val: any): any[] => {
+  if (Array.isArray(val)) {
+    return val;
+  }
+  if (typeof val === 'string' && val.trim() !== '') {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to parse array:', e);
+    }
+  }
+  return [];
+};
+
 function UserGuidePanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   if (typeof document === 'undefined') return null;
   return createPortal(
@@ -160,8 +177,9 @@ function SalaryMasterModal({ isOpen, onClose, record, onSave }: SalaryMasterModa
     useEffect(() => {
         if (isOpen && record) {
             const data = JSON.parse(JSON.stringify(record));
-            if (!data.otherIncomes) data.otherIncomes = [];
-            if (!data.otherDeductions) data.otherDeductions = [];
+            data.otherIncomes = parseArraySafe(data.otherIncomes);
+            data.otherDeductions = parseArraySafe(data.otherDeductions);
+            data.history = parseArraySafe(data.history);
             if (data.workingDays === undefined) data.workingDays = 26;
             
             setFormData(data);
@@ -185,13 +203,13 @@ function SalaryMasterModal({ isOpen, onClose, record, onSave }: SalaryMasterModa
     const handleAddOther = (type: 'otherIncomes' | 'otherDeductions') => {
         setFormData((prev: any) => ({
             ...prev,
-            [type]: [...(prev[type] || []), { label: '', amount: 0 }]
+            [type]: [...parseArraySafe(prev[type]), { label: '', amount: 0 }]
         }));
     };
 
     const handleRemoveOther = (type: 'otherIncomes' | 'otherDeductions', index: number) => {
         setFormData((prev: any) => {
-            const newArray = [...prev[type]];
+            const newArray = [...parseArraySafe(prev[type])];
             newArray.splice(index, 1);
             return { ...prev, [type]: newArray };
         });
@@ -199,7 +217,7 @@ function SalaryMasterModal({ isOpen, onClose, record, onSave }: SalaryMasterModa
 
     const handleOtherChange = (type: 'otherIncomes' | 'otherDeductions', index: number, field: string, value: string) => {
         setFormData((prev: any) => {
-            const newArray = [...prev[type]];
+            const newArray = [...parseArraySafe(prev[type])];
             newArray[index] = { 
                 ...newArray[index], 
                 [field]: field === 'amount' ? (value === '' ? 0 : Number(value)) : value 
@@ -217,8 +235,8 @@ function SalaryMasterModal({ isOpen, onClose, record, onSave }: SalaryMasterModa
     const isBaseOrTypeChanged = record && (formData.baseSalary !== record.baseSalary || formData.payType !== record.payType);
 
     const baseMonthlyEq = formData.payType === 'Daily' ? sumSafe(formData.baseSalary) * sumSafe(formData.workingDays || 0) : sumSafe(formData.baseSalary);
-    const totalOtherIncome = formData.otherIncomes?.reduce((sum: number, item: any) => sum + sumSafe(item.amount), 0) || 0;
-    const totalOtherDeduct = formData.otherDeductions?.reduce((sum: number, item: any) => sum + sumSafe(item.amount), 0) || 0;
+    const totalOtherIncome = parseArraySafe(formData.otherIncomes).reduce((sum: number, item: any) => sum + sumSafe(item.amount), 0);
+    const totalOtherDeduct = parseArraySafe(formData.otherDeductions).reduce((sum: number, item: any) => sum + sumSafe(item.amount), 0);
 
     const fixedGross = baseMonthlyEq + sumSafe(
       formData.allowancePos, 
@@ -391,9 +409,9 @@ function SalaryMasterModal({ isOpen, onClose, record, onSave }: SalaryMasterModa
                                 </div>
                                 
                                 {/* Dynamic Other Incomes */}
-                                {formData.otherIncomes && formData.otherIncomes.length > 0 && (
+                                {parseArraySafe(formData.otherIncomes).length > 0 && (
                                     <div className="mt-4 space-y-3 pt-3 border-t border-dashed border-[#b58c4f]/30">
-                                        {formData.otherIncomes.map((item: any, index: number) => (
+                                        {parseArraySafe(formData.otherIncomes).map((item: any, index: number) => (
                                             <div key={index} className="flex items-end gap-3 bg-white/50 p-2 rounded-xl border border-[#b58c4f]/20">
                                                 <div className="flex-1">
                                                     <label className="text-[10px] font-black text-[#414757] uppercase tracking-widest block mb-1.5">Other Fixed Income Name</label>
@@ -434,9 +452,9 @@ function SalaryMasterModal({ isOpen, onClose, record, onSave }: SalaryMasterModa
                                 </div>
 
                                 {/* Dynamic Other Deductions */}
-                                {formData.otherDeductions && formData.otherDeductions.length > 0 && (
+                                {parseArraySafe(formData.otherDeductions).length > 0 && (
                                     <div className="mt-4 space-y-3 pt-3 border-t border-dashed border-[#eedbe2]">
-                                        {formData.otherDeductions.map((item: any, index: number) => (
+                                        {parseArraySafe(formData.otherDeductions).map((item: any, index: number) => (
                                             <div key={index} className="flex items-end gap-3 bg-white/50 p-2 rounded-xl border border-[#eedbe2]/50">
                                                 <div className="flex-1">
                                                     <label className="text-[10px] font-black text-[#414757] uppercase tracking-widest block mb-1.5">Other Fixed Deduction Name</label>
@@ -572,7 +590,13 @@ export default function SalaryMaster() {
           }
           
           if (loadedItems && loadedItems.length > 0) {
-            setRecords(loadedItems);
+            const sanitized = loadedItems.map((r: any) => ({
+              ...r,
+              otherIncomes: parseArraySafe(r.otherIncomes),
+              otherDeductions: parseArraySafe(r.otherDeductions),
+              history: parseArraySafe(r.history)
+            }));
+            setRecords(sanitized);
           } else {
             await dbSync.write('salary_master', INITIAL_SALARIES);
             setRecords(INITIAL_SALARIES);
@@ -613,8 +637,8 @@ export default function SalaryMaster() {
   
   const totalPayroll = records.reduce((sum, r) => {
       const baseMonthlyEq = r.payType === 'Daily' ? sumSafe(r.baseSalary) * sumSafe(r.workingDays || 26) : sumSafe(r.baseSalary);
-      const otherInc = r.otherIncomes?.reduce((acc: number, i: any) => acc + sumSafe(i.amount), 0) || 0;
-      const otherDed = r.otherDeductions?.reduce((acc: number, d: any) => acc + sumSafe(d.amount), 0) || 0;
+      const otherInc = parseArraySafe(r.otherIncomes).reduce((acc: number, i: any) => acc + sumSafe(i.amount), 0);
+      const otherDed = parseArraySafe(r.otherDeductions).reduce((acc: number, d: any) => acc + sumSafe(d.amount), 0);
 
       const gross = baseMonthlyEq + sumSafe(
         r.allowancePos, 
@@ -678,7 +702,7 @@ export default function SalaryMaster() {
     <div className="flex flex-1 w-full flex-col animate-fadeIn bg-transparent space-y-5 px-4 sm:px-8 py-4">
       
       {/* Floating Action Guide trigger */}
-      <button onClick={() => setIsGuideOpen(true)} className="fixed right-0 bg-[#f8fafc] border border-[#e2e8f0] border-r-0 text-[#212c46] py-8 px-1.5 rounded-l-xl shadow-md hover:bg-[#851c24] hover:text-white hover:border-[#851c24] transition-all duration-500 z-[100] flex flex-col items-center gap-4 group cursor-pointer" style={{ top: '120px' }}>
+      <button onClick={() => setIsGuideOpen(true)} className="fixed right-0 bg-[#f8fafc] border border-[#e2e8f0] border-r-0 text-[#212c46] py-8 px-1.5 rounded-l-xl shadow-md hover:bg-[#851c24] hover:text-white hover:border-[#851c24] transition-all duration-500 z-[100] flex flex-col items-center gap-4 group cursor-pointer" style={{ top: '80px' }}>
           <HelpCircle size={18} className="shrink-0 group-hover:rotate-12 transition-transform text-[#64748b] group-hover:text-white" />
           <span className="font-black tracking-[0.3em] [writing-mode:vertical-rl] rotate-180 whitespace-nowrap uppercase text-[10px] font-mono leading-none">USER GUIDE</span>
       </button>
@@ -833,8 +857,8 @@ export default function SalaryMaster() {
                                 </thead>
                                 <tbody className="bg-white divide-y divide-[#cbd5e1]/30">
                                     {currentData.map((item) => {
-                                        const otherInc = item.otherIncomes?.reduce((sum: number, i: any) => sum + sumSafe(i.amount), 0) || 0;
-                                        const otherDed = item.otherDeductions?.reduce((sum: number, d: any) => sum + sumSafe(d.amount), 0) || 0;
+                                        const otherInc = parseArraySafe(item.otherIncomes).reduce((sum: number, i: any) => sum + sumSafe(i.amount), 0);
+                                        const otherDed = parseArraySafe(item.otherDeductions).reduce((sum: number, d: any) => sum + sumSafe(d.amount), 0);
 
                                         const baseSalaryCalculated = sumSafe(item.baseSalary);
                                         const baseMonthlyEq = item.payType === 'Daily' ? baseSalaryCalculated * sumSafe(item.workingDays || 26) : baseSalaryCalculated;

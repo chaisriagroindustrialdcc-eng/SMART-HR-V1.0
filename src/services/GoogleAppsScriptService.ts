@@ -1,4 +1,4 @@
-export const GAS_WEB_APP_URL = import.meta.env.VITE_APPS_SCRIPT_URL || "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE";
+export const GAS_WEB_APP_URL = import.meta.env.VITE_APPS_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbx3DLqU1OH1AtUnZnRBzte6JaIiL5Yw29wVfUQDrXCuV17uTY4noGoaAO5sn4dvR-CHQg/exec";
 export const GAS_API_KEY = import.meta.env.VITE_API_KEY || "your_secret_key_here";
 
 /**
@@ -9,19 +9,27 @@ export class GASService {
    * Generic request function to call Google Apps Script
    */
   static async request(action: string, sheet?: string, data?: any) {
-    if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL === "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE") {
-      throw new Error("Please configure your Google Apps Script Web App URL in GASService.");
+    const activeUrl = localStorage.getItem('cfg_apps_script_url') || 
+                      import.meta.env.VITE_APPS_SCRIPT_URL || 
+                      "https://script.google.com/macros/s/AKfycbx3DLqU1OH1AtUnZnRBzte6JaIiL5Yw29wVfUQDrXCuV17uTY4noGoaAO5sn4dvR-CHQg/exec";
+
+    if (!activeUrl || activeUrl === "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE") {
+      throw new Error("Please configure your Google Apps Script Web App URL.");
     }
+
+    const activeApiKey = localStorage.getItem('cfg_apps_script_api_key') || 
+                         import.meta.env.VITE_API_KEY || 
+                         "your_secret_key_here";
 
     const payload = {
       action,
       sheet,
       data,
-      apiKey: GAS_API_KEY,
+      apiKey: activeApiKey,
     };
 
     try {
-      const response = await fetch(GAS_WEB_APP_URL, {
+      const response = await fetch(activeUrl, {
         method: "POST",
         headers: {
           "Content-Type": "text/plain;charset=utf-8", // text/plain is used to avoid CORS preflight issues with GAS

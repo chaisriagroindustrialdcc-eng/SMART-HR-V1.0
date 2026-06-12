@@ -411,6 +411,13 @@ export default function PayrollCalculation() {
       });
   }, [records, search, filterStatus, currentPeriodLabel]);
 
+  const statusCounts = useMemo(() => {
+      const periodRecords = records.filter(r => r.periodId === currentPeriodLabel);
+      const counts: Record<string, number> = { All: periodRecords.length, Draft: 0, Approved: 0, Paid: 0 };
+      periodRecords.forEach(r => { if (r.status in counts) counts[r.status]++; });
+      return counts;
+  }, [records, currentPeriodLabel]);
+
   const currentData = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filteredRecords.length / itemsPerPage) || 1;
 
@@ -822,12 +829,17 @@ export default function PayrollCalculation() {
                             <Search size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-[#7a8b95]" />
                             <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search personnel..." className="w-full pl-12 pr-6 py-2.5 text-[12px] border border-[#eaeaec] rounded-full font-bold outline-none focus:border-[#b58c4f] bg-white shadow-sm text-[#212c46]" />
                         </div>
-                        <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="bg-white border border-[#eaeaec] rounded-full px-5 py-2.5 text-[11px] font-black uppercase tracking-widest outline-none focus:border-[#212c46] text-[#414757] shadow-sm cursor-pointer w-40">
-                            <option value="All">All Status</option>
-                            <option value="Draft">Draft Only</option>
-                            <option value="Approved">Approved</option>
-                            <option value="Paid">Paid</option>
-                        </select>
+                        <div className="flex items-center gap-1.5 bg-white border border-[#eaeaec] rounded-full px-4 py-2 shadow-sm">
+                            <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} className="bg-transparent text-[11px] font-black uppercase tracking-widest outline-none cursor-pointer text-[#414757]">
+                                <option value="All">All Status ({statusCounts['All']})</option>
+                                <option value="Draft">Draft ({statusCounts['Draft']})</option>
+                                <option value="Approved">Approved ({statusCounts['Approved']})</option>
+                                <option value="Paid">Paid ({statusCounts['Paid']})</option>
+                            </select>
+                            <span className="shrink-0 bg-[#212c46] text-white font-mono text-[9px] px-1.5 py-0.5 rounded-full font-black min-w-[20px] text-center">
+                                {statusCounts[filterStatus] || statusCounts['All'] || 0}
+                            </span>
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-3 w-full md:w-auto shrink-0">

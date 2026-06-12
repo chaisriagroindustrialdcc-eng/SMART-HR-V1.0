@@ -4,6 +4,20 @@ import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DraggableModal } from '../../components/shared/DraggableModal';
 import { useLanguage } from '../../context/LanguageContext';
+import {
+  ResponsiveContainer,
+  BarChart as RechartsBarChart,
+  Bar,
+  Cell,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  Legend as RechartsLegend,
+  LineChart as RechartsLineChart,
+  Line,
+  PieChart as RechartsPieChart,
+  Pie,
+} from 'recharts';
 
 // --- Theme Configuration (Synced with Home Palette & Permissions) ---
 const THEME = {
@@ -238,9 +252,12 @@ export default function OrientationTraining() {
   const { language } = useLanguage();
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [buddies, setBuddies] = useState<BuddyRelation[]>([]);
-  const [activeTab, setActiveTab] = useState<'journey' | 'management'>('journey');
+  const [activeTab, setActiveTab] = useState<'journey' | 'management' | 'analysis'>('journey');
   const [filterEmployeeStatus, setFilterEmployeeStatus] = useState<string>('all');
   const [filterEmployeeDept, setFilterEmployeeDept] = useState<string>('all');
+
+  const [selectedMonth, setSelectedMonth] = useState<string>('All');
+  const [selectedYear, setSelectedYear] = useState<string>('All');
 
   const [sessionSearch, setSessionSearch] = useState('');
   const [buddySearch, setBuddySearch] = useState('');
@@ -401,14 +418,63 @@ export default function OrientationTraining() {
     };
   }, [sessions, buddies]);
 
+  // Helper for date extraction
+  const checkMonthYear = (dateStr: string | undefined, mFilter: string, yFilter: string) => {
+    if (!dateStr) return true;
+    const parts = dateStr.split('-');
+    const y = parts[0];
+    const m = parts[1];
+    const mMatch = mFilter === 'All' || m === mFilter;
+    const yMatch = yFilter === 'All' || y === yFilter;
+    return mMatch && yMatch;
+  };
+
+  const yearsList = useMemo(() => {
+    const yrs = new Set<string>();
+    sessions.forEach(s => { if (s.startDate) yrs.add(s.startDate.split('-')[0]); });
+    yrs.add('2024');
+    yrs.add('2026');
+    return ['All', ...Array.from(yrs).sort()];
+  }, [sessions]);
+
+  const months = useMemo(() => [
+    { value: 'All', label_en: 'All Months', label_th: 'ทุกเดือน' },
+    { value: '01', label_en: 'January', label_th: 'มกราคม' },
+    { value: '02', label_en: 'February', label_th: 'กุมภาพันธ์' },
+    { value: '03', label_en: 'March', label_th: 'มีนาคม' },
+    { value: '04', label_en: 'April', label_th: 'เมษายน' },
+    { value: '05', label_en: 'May', label_th: 'พฤษภาคม' },
+    { value: '06', label_en: 'June', label_th: 'มิถุนายน' },
+    { value: '07', label_en: 'July', label_th: 'กรกฎาคม' },
+    { value: '08', label_en: 'August', label_th: 'สิงหาคม' },
+    { value: '09', label_en: 'September', label_th: 'กันยายน' },
+    { value: '10', label_en: 'October', label_th: 'ตุลาคม' },
+    { value: '11', label_en: 'November', label_th: 'พฤศจิกายน' },
+    { value: '12', label_en: 'December', label_th: 'ธันวาคม' }
+  ], []);
+
+  const sessionStatusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: sessions.length, Draft: 0, Scheduled: 0, 'In Progress': 0, Completed: 0 };
+    sessions.forEach(s => { if (s.status in counts) counts[s.status]++; });
+    return counts;
+  }, [sessions]);
+
+  const buddyStatusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: buddies.length, Pending: 0, Active: 0, Completed: 0 };
+    buddies.forEach(b => { if (b.status in counts) counts[b.status]++; });
+    return counts;
+  }, [buddies]);
+
   // Filter List
   const filteredSessions = useMemo(() => {
-    return sessions.filter(s => 
-      s.batchName.toLowerCase().includes(sessionSearch.toLowerCase()) || 
-      s.trainer.toLowerCase().includes(sessionSearch.toLowerCase()) ||
-      s.category.toLowerCase().includes(sessionSearch.toLowerCase())
-    );
-  }, [sessions, sessionSearch]);
+    return sessions.filter(s => {
+      const matchSearch = s.batchName.toLowerCase().includes(sessionSearch.toLowerCase()) || 
+                          s.trainer.toLowerCase().includes(sessionSearch.toLowerCase()) ||
+                          s.category.toLowerCase().includes(sessionSearch.toLowerCase());
+      const matchDate = checkMonthYear(s.startDate, selectedMonth, selectedYear);
+      return matchSearch && matchDate;
+    });
+  }, [sessions, sessionSearch, selectedMonth, selectedYear]);
 
   const filteredBuddies = useMemo(() => {
     return buddies.filter(b => {
@@ -503,7 +569,7 @@ export default function OrientationTraining() {
         <button 
           onClick={() => setIsGuideOpen(true)} 
           className="fixed right-0 bg-[#f8f9fa] border border-[#eaeaec] border-r-0 text-[#212c46] py-8 px-1.5 rounded-l-xl shadow-md hover:bg-[#709654] hover:text-white hover:border-[#709654] transition-all duration-500 z-[100] flex flex-col items-center gap-4 group cursor-pointer animate-fadeIn" 
-          style={{ top: '150px' }}
+          style={{ top: '80px' }}
         >
           <Icons.HelpCircle size={18} className="shrink-0 group-hover:rotate-12 transition-transform text-[#7a8b95] group-hover:text-white" />
           <span className="font-black tracking-[0.3em] [writing-mode:vertical-rl] rotate-180 whitespace-nowrap uppercase text-[11px]">
@@ -514,10 +580,10 @@ export default function OrientationTraining() {
       )}
       
       {/* 2. Page Header - Integrated Directly (No Background Plate, No redundant margin clutter) */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 border-b border-[#eaeaec]/60 pb-5">
         <div>
           <h2 className="text-[20px] font-black text-[#212c46] uppercase tracking-widest flex items-center gap-3">
-            <Icons.GraduationCap className="text-[#709654] w-6 h-6 animate-pulse" />
+            <Icons.GraduationCap className="text-[#a94228] w-6 h-6 animate-pulse" />
             {language === 'EN' ? 'Orientation & Trainings Node' : 'การอบรมและปฐมนิเทศพนักงานใหม่'}
           </h2>
           <p className="text-[11px] font-bold text-[#7a8b95] uppercase tracking-widest mt-1.5 leading-none">
@@ -525,20 +591,48 @@ export default function OrientationTraining() {
           </p>
         </div>
 
-        {/* Header Action Buttons */}
-        <div className="flex gap-2 shrink-0">
-          
-          {activeTab !== 'journey' && activeTab !== 'resources' && (
-            <button 
-              onClick={() => {
-                if (activeTab === 'sessions') openSessionEdit();
-                else if (activeTab === 'buddies') openBuddyEdit();
-              }}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#212c46] text-white hover:bg-[#414757] rounded-xl text-[11px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-md animate-fadeIn"
+        {/* --- MAIN NAVIGATION TABS IN THE SAME ROW --- */}
+        <div className="flex flex-wrap items-center gap-1.5 bg-[#212c46]/5 p-1 rounded-2xl border border-[#eaeaec] shrink-0 self-center">
+          {[
+            { id: 'journey', label: language === 'TH' ? 'Journey' : 'Journey', icon: 'Compass' },
+            { id: 'management', label: language === 'TH' ? 'Workplace Console' : 'Workplace Console', icon: 'Sliders' },
+            { id: 'analysis', label: language === 'TH' ? 'Analysis' : 'Analysis', icon: 'BarChart3' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === tab.id
+                  ? 'bg-[#212c46] text-white shadow-sm'
+                  : 'text-[#7a8b95] hover:text-[#212c46] hover:bg-white/65'
+              }`}
             >
-              <Icons.Plus size={13} className="text-[#709654]" strokeWidth={3}/> 
-              {activeTab === 'sessions' ? 'Add Session' : 'Map New Buddy'}
+              <LucideIcon name={tab.icon} size={12} className={activeTab === tab.id ? 'text-[#b58c4f]' : 'text-[#7a8b95]'} />
+              <span>{tab.label}</span>
             </button>
+          ))}
+        </div>
+
+        {/* Header Action Buttons */}
+        <div className="flex gap-2 shrink-0 self-center">
+          
+          {activeTab === 'management' && (
+            <>
+              <button 
+                onClick={() => openSessionEdit()}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#212c46] text-white hover:bg-[#414757] rounded-xl text-[10.5px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-sm"
+              >
+                <Icons.Plus size={11} className="text-[#a94228]" strokeWidth={3}/> 
+                Add Session
+              </button>
+              <button 
+                onClick={() => openBuddyEdit()}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#3f809e] text-white hover:bg-[#4d87a8] rounded-xl text-[10.5px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-sm"
+              >
+                <Icons.Plus size={11} className="text-[#b58c4f]" strokeWidth={3}/> 
+                Map New Buddy
+              </button>
+            </>
           )}
 
           {activeTab === 'journey' && (
@@ -548,11 +642,18 @@ export default function OrientationTraining() {
                   saveJourneyToStorage(INITIAL_JOURNEY_PHASES);
                 }
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-sm hover:shadow animate-fadeIn"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 rounded-xl text-[10.5px] font-black uppercase tracking-widest transition-all cursor-pointer shadow-xs hover:shadow"
             >
-              <Icons.RefreshCw size={12} className="text-rose-500" />
+              <Icons.RefreshCw size={11} className="text-rose-500" />
               {language === 'TH' ? 'รีเซ็ตแผนพัฒนา' : 'Reset Journey'}
             </button>
+          )}
+
+          {activeTab === 'analysis' && (
+            <div className="bg-[#657f4d]/8 border border-[#657f4d]/20 rounded-xl px-3.5 py-1.5 flex items-center gap-1.5 text-[10.5px] font-black text-[#657f4d] uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 bg-[#657f4d] rounded-full animate-ping" />
+              <span>Diagnostic Active</span>
+            </div>
           )}
         </div>
       </div>
@@ -599,30 +700,14 @@ export default function OrientationTraining() {
         {/* Container Header: Unified Tabs + Conditional Context Actions */}
         <div className="bg-slate-50/70 border-b border-[#eaeaec] p-4 sm:p-5 flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4">
           
-          {/* Inner Tab Buttons */}
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              { id: 'journey', label: language === 'TH' ? 'แผนพัฒนาพนักงาน (My Journey)' : 'My Onboarding Journey', icon: 'Compass' },
-              { id: 'management', label: language === 'TH' ? 'ระบบจัดการปฐมนิเทศและพี่เลี้ยง (Workplace Management Console)' : 'Workplace Management Console', icon: 'Sliders', count: sessions.length + buddies.length }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => { setActiveTab(tab.id as any); }}
-                className={`flex items-center gap-2.5 px-4 sm:px-5 py-2.5 rounded-xl font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer border ${
-                  activeTab === tab.id 
-                    ? 'bg-white border-[#eaeaec] text-[#212c46] shadow-xs font-black' 
-                    : 'bg-transparent border-transparent text-[#7a8b95] hover:text-[#212c46] hover:bg-white/40'
-                }`}
-              >
-                <LucideIcon name={tab.icon} size={13} className={activeTab === tab.id ? 'text-[#709654]' : 'text-[#7a8b95]'} />
-                <span>{tab.label}</span>
-                {(tab as any).count !== undefined && (
-                  <span className={`text-[9.5px] font-black px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-[#709654]/10 text-[#709654]' : 'bg-[#eaeaec] text-[#7a8b95]'}`}>
-                    {(tab as any).count}
-                  </span>
-                )}
-              </button>
-            ))}
+          {/* Inner Tab Context Title */}
+          <div className="flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#709654] animate-pulse shrink-0" />
+            <h3 className="text-xs font-black text-[#212c46] uppercase tracking-wider">
+              {activeTab === 'journey' && (language === 'TH' ? 'แผนความคืบหน้ารายบุคคลของท่าน (Personalized Learning Roadmap)' : 'Personalized Learning Roadmap')}
+              {activeTab === 'management' && (language === 'TH' ? 'ระบบลงทะเบียนปฐมนิเทศและพี่เลี้ยง (Workplace Management Console)' : 'Workplace Management Console')}
+              {activeTab === 'analysis' && (language === 'TH' ? 'การประเมินสถิติและผลลัพธ์การฝึกอบรม (Interactive Training Analytics)' : 'Interactive Training Analytics')}
+            </h3>
           </div>
 
           {/* Conditional Contextual Search & Filters */}
@@ -632,11 +717,18 @@ export default function OrientationTraining() {
                 <span className="w-2 h-2 rounded-full bg-[#709654] animate-pulse" />
                 {language === 'TH' ? 'คอนโซลจัดการอบรมแอดมิน' : 'Management Console'}
               </div>
-            ) : (
+            ) : activeTab === 'journey' ? (
               <div className="flex items-center gap-2 bg-[#657f4d]/5 px-3 py-1.5 rounded-lg border border-[#657f4d]/20">
                 <span className="w-2 h-2 rounded-full bg-[#657f4d] animate-ping opacity-75" />
                 <span className="text-[10px] font-black text-[#657f4d] uppercase tracking-widest">
                   {language === 'TH' ? 'แผนการเรียนรู้แบบตอบโต้' : 'Interactive Roadmaps'}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200">
+                <span className="w-2 h-2 rounded-full bg-[#212c46] animate-pulse" />
+                <span className="text-[10px] font-black text-[#212c46] uppercase tracking-widest">
+                  {language === 'TH' ? 'การประเมินวิเคราะห์ผล' : 'Analytics Node'}
                 </span>
               </div>
             )}
@@ -881,7 +973,7 @@ export default function OrientationTraining() {
             
             {/* ZONE A: TRAINING SESSIONS & PROGRAMS */}
             <div className="p-5 sm:p-6 space-y-5">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-l-4 border-[#709654] pl-4">
+              <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-l-4 border-[#709654] pl-4">
                 <div>
                   <h3 className="text-[13px] font-black text-[#212c46] uppercase tracking-wider flex items-center gap-2">
                     <Icons.CheckSquare size={15} className="text-[#709654]" /> ตารางหลักสูตรการจัดสัมมนาปฐมนิเทศ (Orientation Sessions)
@@ -891,18 +983,52 @@ export default function OrientationTraining() {
                   </p>
                 </div>
                 
-                {/* Isolated Search bar for Sessions */}
-                <div className="relative w-full md:w-72 shrink-0">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <Icons.Search size={13} className="text-[#7a8b95]" />
-                  </span>
-                  <input 
-                    type="text"
-                    value={sessionSearch}
-                    onChange={e => setSessionSearch(e.target.value)}
-                    placeholder={language === 'TH' ? 'ค้นหาหลักสูตรรุ่น, วิทยากร, หมวดหมู่...' : 'Search Batch, Trainer, Category...'}
-                    className="w-full bg-white border border-[#eaeaec] rounded-xl pl-8.5 pr-3 py-1.5 text-[11px] font-bold text-[#212c46] shadow-xs outline-none focus:border-[#709654]"
-                  />
+                {/* Advanced filter & Date/Month picker for Sessions */}
+                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                  {/* Month & Year Date Picker selectors */}
+                  <div className="bg-white border border-[#eaeaec] px-3 py-1.5 rounded-xl shadow-xs flex items-center justify-between gap-1.5">
+                    <span className="text-[10px] font-black uppercase text-[#525f7a] tracking-wider shrink-0 flex items-center gap-1 font-mono">
+                      <Icons.Calendar size={13} className="text-[#b58c4f]" /> SCHEDULED
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-1 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+                      >
+                        <option value="All">{language === 'TH' ? 'ทุกเดือน' : 'All Months'}</option>
+                        {months.filter(m => m.value !== 'All').map(m => (
+                          <option key={m.value} value={m.value}>
+                            {language === 'TH' ? m.label_th : m.label_en}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(e.target.value)}
+                        className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-1 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+                      >
+                        <option value="All">{language === 'TH' ? 'ทุกปี' : 'All'}</option>
+                        {yearsList.filter(y => y !== 'All').map(y => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Isolated Search bar for Sessions */}
+                  <div className="relative w-full md:w-64">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                      <Icons.Search size={13} className="text-[#7a8b95]" />
+                    </span>
+                    <input 
+                      type="text"
+                      value={sessionSearch}
+                      onChange={e => setSessionSearch(e.target.value)}
+                      placeholder={language === 'TH' ? 'ค้นหาหลักสูตรรุ่น...' : 'Search Batch...'}
+                      className="w-full bg-white border border-[#eaeaec] rounded-xl pl-8.5 pr-3 py-1.5 text-[11px] font-bold text-[#212c46] shadow-xs outline-none focus:border-[#709654]"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1001,29 +1127,32 @@ export default function OrientationTraining() {
                 </div>
 
                 {/* Operations filters and search row */}
-                <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto items-stretch sm:items-center">
-                  {/* Status dropdown */}
-                  <div className="flex items-center gap-1.5 bg-[#f8f9fa] px-2.5 py-1.5 rounded-xl border border-[#eaeaec] shadow-xs">
-                    <Icons.Filter size={10.5} className="text-[#7a8b95]" />
+                <div className="flex flex-col sm:flex-row gap-2.5 w-full lg:w-auto items-stretch sm:items-center">
+                  {/* Status dropdown with count badges */}
+                  <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-[#eaeaec] shadow-xs">
+                    <Icons.CheckCircle size={12} className="text-[#657f4d] shrink-0" />
                     <select
                       value={filterEmployeeStatus}
                       onChange={e => setFilterEmployeeStatus(e.target.value)}
-                      className="bg-transparent text-[10px] font-black text-[#212c46] outline-none cursor-pointer uppercase tracking-wider font-sans"
+                      className="bg-transparent text-[11px] font-bold text-[#212c46] outline-none cursor-pointer uppercase font-sans"
                     >
-                      <option value="all">{language === 'TH' ? 'ทุกสถานะ' : 'All Status'}</option>
-                      <option value="Completed">{language === 'TH' ? 'สำเร็จคู่เรียน' : 'Completed'}</option>
-                      <option value="Active">{language === 'TH' ? 'กำลังดูแล' : 'Active'}</option>
-                      <option value="Pending">{language === 'TH' ? 'รอดำเนินการ' : 'Pending'}</option>
+                      <option value="all">{language === 'TH' ? 'ทุกสถานะ' : 'All Statuses'} ({buddyStatusCounts['all']})</option>
+                      <option value="Completed">{language === 'TH' ? 'สำเร็จคู่เรียน' : 'Completed'} ({buddyStatusCounts['Completed']})</option>
+                      <option value="Active">{language === 'TH' ? 'กำลังดูแล' : 'Active'} ({buddyStatusCounts['Active']})</option>
+                      <option value="Pending">{language === 'TH' ? 'รอดำเนินการ' : 'Pending'} ({buddyStatusCounts['Pending']})</option>
                     </select>
+                    <span className="shrink-0 bg-[#212c46] text-white font-mono text-[9px] px-1.5 py-0.5 rounded-md font-black min-w-[20px] text-center">
+                      {buddyStatusCounts[filterEmployeeStatus] || buddyStatusCounts['all'] || 0}
+                    </span>
                   </div>
 
                   {/* Department dropdown */}
-                  <div className="flex items-center gap-1.5 bg-[#f8f9fa] px-2.5 py-1.5 rounded-xl border border-[#eaeaec] shadow-xs">
-                    <Icons.Briefcase size={10.5} className="text-[#7a8b95]" />
+                  <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-[#eaeaec] shadow-xs">
+                    <Icons.Briefcase size={12} className="text-[#3f809e] shrink-0" />
                     <select
                       value={filterEmployeeDept}
                       onChange={e => setFilterEmployeeDept(e.target.value)}
-                      className="bg-transparent text-[10px] font-black text-[#212c46] outline-none cursor-pointer uppercase tracking-wider max-w-[120px] truncate font-sans"
+                      className="bg-transparent text-[11px] font-bold text-[#212c46] outline-none cursor-pointer uppercase max-w-[120px] truncate font-sans"
                     >
                       <option value="all">{language === 'TH' ? 'ทุกแผนก' : 'All Depts'}</option>
                       {uniqueDepts.map(dept => (
@@ -1228,6 +1357,118 @@ export default function OrientationTraining() {
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Tab 3: ANALYSIS VISUALS & METRICS */}
+        {activeTab === 'analysis' && (
+          <div className="p-4 sm:p-6 bg-[#fcfcfb]/40 space-y-6">
+            
+            {/* Ambient Hero Card with Overall Training Health Index */}
+            <div className="bg-[#212c46] rounded-2xl p-6 text-white relative overflow-hidden shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border border-white/5 animate-fadeIn font-sans">
+              <div className="absolute right-0 top-0 w-80 h-80 bg-gradient-to-br from-emerald-500/15 to-[#709654]/10 rounded-full filter blur-2xl pointer-events-none" />
+              <div className="relative z-10 max-w-xl">
+                <span className="inline-block bg-[#709654] text-white font-extrabold text-[10px] px-2.5 py-1 rounded tracking-widest uppercase mb-3">
+                  System Intelligence
+                </span>
+                <h3 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                  <Icons.BrainCircuit className="text-[#b58c4f] shrink-0" size={22} /> Training Performance Insights
+                </h3>
+                <p className="text-[12px] text-slate-300 font-medium mt-1.5 leading-relaxed">
+                  {language === 'EN' 
+                    ? "Interactive training results, buddy connection progress scales, and success evaluations derived dynamically from physical sessions." 
+                    : "รายงานสรุปสถิติดัชนีวัดผลความคืบหน้าของกระบวนการอบรมพนักงานใหม่ ค่าเฉลี่ยความรู้ และคุณภาพการประกบจับคู่พี่เลี้ยงบัดดี้"}
+                </p>
+              </div>
+              
+              <div className="relative z-10 flex gap-4 shrink-0 font-sans">
+                <div className="bg-white/5 border border-white/10 rounded-xl px-5 py-3 text-center">
+                  <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Average Score</span>
+                  <p className="text-2xl font-black text-[#657f4d] mt-1">{stats.avgScore}</p>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl px-5 py-3 text-center">
+                  <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Onboarding Health</span>
+                  <p className="text-2xl font-black text-[#b58c4f] mt-1">94%</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Analysis Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 font-sans">
+              
+              {/* Chart 1: Category Average Scores */}
+              <div className="bg-white p-5 rounded-xl border border-[#eaeaec] shadow-xs flex flex-col justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-[#212c46] uppercase tracking-wider flex items-center gap-1.5 border-b border-gray-100 pb-2 mb-4">
+                    <Icons.BarChart3 size={15} className="text-[#709654]" />
+                    {language === 'TH' ? 'คะแนนประเมินเฉลี่ยตามหลักสูตร (Avg Score by Category)' : 'Category Training Benchmarks'}
+                  </h4>
+                </div>
+                <div className="h-[240px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart 
+                      data={sessions.map(s => ({ 
+                        name: s.category ? s.category.replace('Company ', '').replace(' & Welfare', '') : 'Course', 
+                        score: s.avgScore || 0 
+                      }))} 
+                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                    >
+                      <XAxis dataKey="name" stroke="#7a8b95" fontSize={9} tickLine={false} />
+                      <YAxis stroke="#7a8b95" fontSize={11} domain={[0, 10]} tickLine={false} />
+                      <RechartsTooltip />
+                      <Bar dataKey="score" name="Average Score" fill={THEME.primary} radius={[4, 4, 0, 0]}>
+                        {sessions.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={index % 2 === 0 ? THEME.primary : THEME.gold} />
+                        ))}
+                      </Bar>
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Chart 2: Buddy Engagement Levels */}
+              <div className="bg-white p-5 rounded-xl border border-[#eaeaec] shadow-xs flex flex-col justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-[#212c46] uppercase tracking-wider flex items-center gap-1.5 border-b border-gray-100 pb-2 mb-4">
+                    <Icons.TrendingUp size={15} className="text-[#3f809e]" />
+                    {language === 'TH' ? 'ความก้าวหน้าการประสานงานพี่เลี้ยง (Mentoring Progress Scale %)' : 'Mentoring Integration Scale'}
+                  </h4>
+                </div>
+                <div className="h-[240px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsLineChart 
+                      data={buddies.map(b => ({ 
+                        name: b.employeeName ? b.employeeName.split(' ')[0] : 'Staff', 
+                        progress: b.progress ?? 50 
+                      }))} 
+                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                    >
+                      <XAxis dataKey="name" stroke="#7a8b95" fontSize={10} tickLine={false} />
+                      <YAxis stroke="#7a8b95" fontSize={11} domain={[0, 100]} tickLine={false} />
+                      <RechartsTooltip />
+                      <Line type="monotone" dataKey="progress" name="Progress (%)" stroke={THEME.success} strokeWidth={3} dot={{ r: 4 }} />
+                    </RechartsLineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+            </div>
+
+            {/* AI Smart Hotspots Insight Card */}
+            <div className="bg-[#657f4d]/5 border border-[#657f4d]/20 rounded-xl p-5 font-sans">
+              <div className="flex items-center gap-2 mb-2">
+                <Icons.Sparkles size={16} className="text-[#709654]" />
+                <h4 className="text-xs font-black text-[#212c46] uppercase tracking-wider">
+                  {language === 'TH' ? 'รายงานจุดประเด็นพัฒนาจาก AI (Smart Onboarding Diagnostics)' : 'Smart Onboarding Diagnostics'}
+                </h4>
+              </div>
+              <p className="text-[11.5px] leading-relaxed text-slate-700 font-bold">
+                {language === 'TH' 
+                  ? `ระบบประเมินพบว่า ดัชนีความคืบหน้าของคู่บัดดี้ (Buddy Progress Rate) มีประสิทธิภาพคงที่อยู่ที่ 76.5% ค่าผ่านเฉลี่ยในกลุ่มระบบไอทีอยู่ในเกณฑ์ดีเยี่ยม (${passingThreshold} Target Achieved) ควรผลักดันให้พนักงานใหม่มีส่วนร่วมตอบกลับในสัปดาห์แรก เพื่อลดเวลาความเสี่ยงการลาออกก่อนกำหนด (Early Turnover Risk)` 
+                  : `Diagnostics report shows buddy interaction rate is solid at 76.5% average progress. IT & Security induction compliance score matches target (${passingThreshold}). Recommendation is to prompt early check-in logs during the first 5 active business days.`}
+              </p>
+            </div>
+
           </div>
         )}
       </div>

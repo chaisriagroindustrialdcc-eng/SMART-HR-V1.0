@@ -70,6 +70,22 @@ interface InterviewFeedback {
   comments: string;
 }
 
+const months = [
+  { value: 'All', label_en: 'All Months', label_th: 'ทุกเดือน' },
+  { value: '01', label_en: 'January', label_th: 'มกราคม' },
+  { value: '02', label_en: 'February', label_th: 'กุมภาพันธ์' },
+  { value: '03', label_en: 'March', label_th: 'มีนาคม' },
+  { value: '04', label_en: 'April', label_th: 'เมษายน' },
+  { value: '05', label_en: 'May', label_th: 'พฤษภาคม' },
+  { value: '06', label_en: 'June', label_th: 'มิถุนายน' },
+  { value: '07', label_en: 'July', label_th: 'กรกฎาคม' },
+  { value: '08', label_en: 'August', label_th: 'สิงหาคม' },
+  { value: '09', label_en: 'September', label_th: 'กันยายน' },
+  { value: '10', label_en: 'October', label_th: 'ตุลาคม' },
+  { value: '11', label_en: 'November', label_th: 'พฤศจิกายน' },
+  { value: '12', label_en: 'December', label_th: 'ธันวาคม' }
+];
+
 const INITIAL_RECORDS: InterviewFeedback[] = [
   { 
     id: 'FDB-001', 
@@ -384,6 +400,7 @@ function FeedbackModal({ isOpen, onClose, record, onSave }: { isOpen: boolean; o
 }
 
 export default function InterviewAssessmentPage() {
+  const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'registry' | 'settings'>('registry');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [records, setRecords] = useState<InterviewFeedback[]>([]);
@@ -401,6 +418,10 @@ export default function InterviewAssessmentPage() {
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRec, setEditingRec] = useState<InterviewFeedback | null>(null);
+
+  // Schedulers date filters
+  const [selectedMonth, setSelectedMonth] = useState<string>('All');
+  const [selectedYear, setSelectedYear] = useState<string>('All');
 
   // Settings State matching standard of UserPermissions
   const [policies, setPolicies] = useState({
@@ -432,6 +453,30 @@ export default function InterviewAssessmentPage() {
     loadInterviewFeedbacks();
   }, []);
 
+  // Helper for date extraction
+  const checkMonthYear = (dateStr: string | undefined, mFilter: string, yFilter: string) => {
+    if (!dateStr) return true;
+    const parts = dateStr.split('-');
+    const y = parts[0];
+    const m = parts[1];
+    const mMatch = mFilter === 'All' || m === mFilter;
+    const yMatch = yFilter === 'All' || y === yFilter;
+    return mMatch && yMatch;
+  };
+
+  const yearsList = useMemo(() => {
+    const yrs = new Set<string>();
+    records.forEach(r => { if (r.date) yrs.add(r.date.split('-')[0]); });
+    yrs.add('2026');
+    return ['All', ...Array.from(yrs).sort()];
+  }, [records]);
+
+  const resultCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: records.length, Qualified: 0, 'Not Qualified': 0, 'Under Review': 0 };
+    records.forEach(r => { if (r.result in counts) counts[r.result]++; });
+    return counts;
+  }, [records]);
+
   const filteredRecords = useMemo(() => {
     return records.filter(rec => {
       const matchSearch = rec.candidate.toLowerCase().includes(search.toLowerCase()) || 
@@ -440,9 +485,10 @@ export default function InterviewAssessmentPage() {
                           rec.ticketId.toLowerCase().includes(search.toLowerCase());
       const matchDept = selectedDept === 'ALL' || rec.dept === selectedDept;
       const matchResult = selectedResult === 'ALL' || rec.result === selectedResult;
-      return matchSearch && matchDept && matchResult;
+      const matchDate = checkMonthYear(rec.date, selectedMonth, selectedYear);
+      return matchSearch && matchDept && matchResult && matchDate;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [records, search, selectedDept, selectedResult]);
+  }, [records, search, selectedDept, selectedResult, selectedMonth, selectedYear]);
 
   const paginatedData = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filteredRecords.length / itemsPerPage) || 1;
@@ -591,22 +637,80 @@ export default function InterviewAssessmentPage() {
             <div className="bg-white rounded-3xl shadow-lg border border-[#eaeaec] overflow-hidden flex flex-col min-h-[500px]">
               
               {/* TOOLBAR */}
-              <div className="px-6 py-4 border-b border-[#eaeaec] bg-[#f8f9fa] flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
-                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                  <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} className="bg-white border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-[11px] font-black uppercase tracking-widest text-[#212c46] outline-none focus:border-[#3f809e] shadow-sm cursor-pointer select">
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>DEPT: {d === 'Information Technology' ? 'IT' : d}</option>)}
-                  </select>
-                  <select value={selectedResult} onChange={(e) => setSelectedResult(e.target.value)} className="bg-white border border-slate-200 rounded-xl pl-4 pr-10 py-2.5 text-[11px] font-black uppercase tracking-widest text-[#212c46] outline-none focus:border-[#3f809e] shadow-sm cursor-pointer select">
-                    {RESULTS.map(r => <option key={r} value={r}>RESULT: {r}</option>)}
-                  </select>
+              <div className="px-6 py-5 border-b border-[#eaeaec] bg-[#f8f9fa] flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-4 shrink-0 transition-all">
+                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                  {/* Department select */}
+                  <div className="bg-white border border-[#eaeaec] px-3 py-1.5 rounded-xl shadow-xs flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase text-[#525f7a] tracking-wider shrink-0 flex items-center gap-1 font-mono">
+                      <Building2 size={13} className="text-[#3f809e]" /> DEPT
+                    </span>
+                    <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} className="bg-[#f8f9fc] border border-[#eaeaec] px-2 py-1 rounded-lg text-[11px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654] min-w-[100px]">
+                      {DEPARTMENTS.map(d => <option key={d} value={d}>{d === 'ALL' ? 'ALL DEPTS' : (d === 'Information Technology' ? 'IT' : d)}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Standardized Dropdown status filter with count badges */}
+                  <div className="bg-white border border-[#eaeaec] px-3 py-1.5 rounded-xl shadow-xs flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase text-[#525f7a] tracking-wider shrink-0 flex items-center gap-1 font-mono">
+                      <CheckCircle2 size={13} className="text-[#657f4d]" /> RESULT
+                    </span>
+                    <select
+                      value={selectedResult}
+                      onChange={(e) => setSelectedResult(e.target.value)}
+                      className="bg-[#f8f9fc] border border-[#eaeaec] px-2 py-1 rounded-lg text-[11px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654] min-w-[120px]"
+                    >
+                      {RESULTS.map(opt => (
+                        <option key={opt} value={opt}>
+                          {opt === 'ALL' ? 'ALL RESULTS' : opt} ({resultCounts[opt] || 0})
+                        </option>
+                      ))}
+                    </select>
+                    <span className="shrink-0 bg-[#212c46] text-white font-mono text-[9px] px-1.5 py-0.5 rounded-md font-black min-w-[20px] text-center">
+                      {resultCounts[selectedResult] || resultCounts['ALL'] || 0}
+                    </span>
+                  </div>
+
+                  {/* Month & Year Date Picker selectors */}
+                  <div className="bg-white border border-[#eaeaec] px-3 py-1.5 rounded-xl shadow-xs flex items-center justify-between gap-1.5">
+                    <span className="text-[10px] font-black uppercase text-[#525f7a] tracking-wider shrink-0 flex items-center gap-1 font-mono">
+                      <Icons.Calendar size={13} className="text-[#b58c4f]" /> SCHEDULED
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-1 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+                      >
+                        <option value="All">{language === 'TH' ? 'ทุกเดือน' : 'All Months'}</option>
+                        {months.filter(m => m.value !== 'All').map(m => (
+                          <option key={m.value} value={m.value}>
+                            {language === 'TH' ? m.label_th : m.label_en}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(e.target.value)}
+                        className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-1 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+                      >
+                        <option value="All">{language === 'TH' ? 'ทุกปี' : 'All'}</option>
+                        {yearsList.filter(y => y !== 'All').map(y => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <span className="text-slate-300 hidden lg:block">|</span>
-                  <div className="relative flex-1 md:w-80">
+
+                  {/* Search box */}
+                  <div className="relative w-full md:w-64 min-w-[200px]">
                     <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search candidate, position, ticket ID, assessor..." className="w-full pl-10 pr-6 py-2.5 text-[11px] border border-slate-200 rounded-xl font-bold outline-none focus:border-[#b58c4f] bg-white text-[#212c46] placeholder-slate-400" />
+                    <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or ticket ID..." className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-[#b58c4f] bg-white text-[#212c46] placeholder-slate-400" />
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0 w-full md:w-auto justify-end">
+                <div className="flex items-center gap-3 shrink-0 w-full xl:w-auto justify-end">
                   <button onClick={() => handleOpenModal()} className="bg-[#212c46] hover:bg-[#3f809e] text-white px-6 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-md transition-all flex items-center gap-2 cursor-pointer">
                     <Plus size={14} strokeWidth={3} /> Record Feedback
                   </button>

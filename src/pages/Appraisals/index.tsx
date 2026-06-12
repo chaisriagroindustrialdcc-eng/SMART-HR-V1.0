@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Award, 
@@ -92,10 +93,83 @@ const CustomChartTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
+// --- User Guide Panel for Evaluation, Appraisals & Historic Tracking ---
+function UserGuidePanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <>
+      <div className={`fixed inset-0 z-[190] bg-[#212c46]/60 backdrop-blur-sm transition-opacity duration-500 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={onClose}/>
+      <div className={`fixed inset-y-0 right-0 z-[200] w-full md:w-[500px] bg-white shadow-2xl transform transition-transform duration-500 ease-in-out flex flex-col border-l-4 border-[#3f809e] ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        
+        <div className="flex justify-between items-center p-5 px-6 border-b-2 border-[#3f809e] bg-[#212c46] text-white shrink-0">
+          <div>
+            <h3 className="font-black flex items-center gap-3 uppercase tracking-widest text-[14px]"><Award size={20} className="text-[#3f809e]"/> EVALUATION & HISTORY GUIDE</h3>
+            <p className="text-[11px] font-bold text-[#d7d7d7] uppercase tracking-widest mt-1">คู่มือประเมินผลงานและติดตามประวัติ</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-white/50 hover:text-[#932c2e] hover:bg-white/10 rounded-xl transition-colors"><Plus size={24} className="rotate-45"/></button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 text-[#414757] text-[12px] leading-relaxed custom-scrollbar bg-white animate-fadeIn">
+          <section>
+            <h4 className="text-[13px] font-black text-[#212c46] mb-3 uppercase flex items-center gap-2 border-b-2 border-[#eaeaec] pb-2 font-mono">
+              <CheckSquare size={18} className="text-[#3f809e]"/> 1. แผนกประเมินผลงาน (Performance Appraisals)
+            </h4>
+            <p className="text-[12px] mb-2 font-sans text-[#525a72]">
+              เป็นเมนูสำหรับประเมินผลงานประจำไตรมาสหรือประจำปี โดยกรอกประเมินดัชนีคะแนนสำคัญ 4 มิติ:</p>
+            <ul className="list-disc pl-5 mt-1 space-y-2 text-[#525a72]">
+              <li><strong>ค่าน้ำหนักหลัก (KPI Breakdowns):</strong> แบ่งเป็น งานเทคนิค (Technical 30%), การประสานงานและลงมือทำจริง (Execution 35%), มาตรฐานองค์กรและความปลอดภัย (Compliance 20%), และความร่วมมือร่วมใจทีม (Teamwork 15%)</li>
+              <li><strong>คะแนนดิบและเกรดเฉลี่ย:</strong> คำนวณสรุปคะแนนประเมินตนเอง (Self-Score) เปรียบเทียบคะแนนจริงเพื่อออกเกรด A, B, C, D</li>
+              <li><strong>การให้คำแนะนำ:</strong> บันทึกข้อเสนอแนะของผู้จัดการ (Supervisor comments) เพื่อเสริมสร้างการเจริญเติบโตร่วมกัน</li>
+            </ul>
+          </section>
+
+          <section>
+            <h4 className="text-[13px] font-black text-[#212c46] mb-3 uppercase flex items-center gap-2 border-b-2 border-[#eaeaec] pb-2 font-mono">
+              <TrendingUp size={18} className="text-[#b58c4f]"/> 2. ระบบดึงประวัติย้อนหลัง (Historic Tracking)
+            </h4>
+            <p className="text-[12px] mb-2">แสดงทิศทางการเติบโตของบุคลากรด้วยแดชบอร์ดสถิติวิเคราะห์:</p>
+            <ul className="list-none pl-0 space-y-3">
+              <li className="flex items-start gap-2 bg-[#f8f9fa] p-3 rounded-xl border border-[#eaeaec]">
+                <Clock size={16} className="shrink-0 text-[#b58c4f] mt-0.5" />
+                <div>
+                  <strong className="text-[#212c46] block text-[11px] uppercase">Historic Progression Graphs</strong>
+                  แสดงวิวัฒนาการคะแนนในแต่ละรอบ (Period) ด้วยกราฟเส้น Area Chart พัฒนาการสะสม ชี้ชัดระดับศักยภาพเพิ่มขึ้นหรือลดลงของพนักงาน
+                </div>
+              </li>
+              <li className="flex items-start gap-2 bg-[#f8f9fa] p-3 rounded-xl border border-[#eaeaec]">
+                <Sliders size={16} className="shrink-0 text-[#657f4d] mt-0.5" />
+                <div>
+                  <strong className="text-[#212c46] block text-[11px] uppercase">Interactive Filters</strong>
+                  เลือกพนักงานเฉพาะเจาะจงเพื่อตรวจสอบแนวโน้มความเสถียรภาพ เปรียบเทียบคะแนนแต่ละแผนกเพื่อประกอบการตัดสินใจสวัสดิการ
+                </div>
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h4 className="text-[13px] font-black text-[#212c46] mb-3 uppercase flex items-center gap-2 border-b-2 border-[#eaeaec] pb-2 font-mono">
+              <Printer size={18} className="text-[#a94228]"/> 3. ฟังก์ชันและการนำออกเอกสาร
+            </h4>
+            <ul className="list-disc pl-5 space-y-1.5 text-[#525a72]">
+              <li>พิมพ์ใบสลิปและใบประเมินผลงานแบบแยกจำเพาะด้วยปุ่ม <strong>PRINT CARD</strong> หรือกดดาวน์โหลด PDF ที่เป็นมาตรฐานทันที</li>
+              <li>รองรับสถาปัตยกรรม <strong>Bulk CSV Upload, Download</strong> นำเข้าข้อมูลประวัติคนทำงานในแผนกเป็นจำนวนมากเพียงในคลิกเดียว</li>
+            </ul>
+          </section>
+        </div>
+        
+        <div className="p-4 bg-[#f8f9fa] border-t border-[#eaeaec] flex justify-end shrink-0">
+          <button onClick={onClose} className="px-8 py-2.5 bg-[#212c46] text-white font-black rounded-xl uppercase text-[11px] hover:bg-[#414757] hover:text-white transition-all shadow-md tracking-[0.1em] cursor-pointer">รับทราบ (Got it)</button>
+        </div>
+      </div>
+    </>, document.body
+  );
+}
+
 export default function AppraisalsPage() {
   const [appraisals, setAppraisals] = useState<Appraisal[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -538,27 +612,43 @@ export default function AppraisalsPage() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-6 bg-[#f3f3f1] min-h-screen text-slate-800" id="appraisals-module-page">
+    <div className="flex flex-1 w-full flex-col animate-fadeIn bg-transparent space-y-4 text-slate-800" id="appraisals-module-page">
+      
+      {/* 1. Header user guide floating tab */}
+      <button 
+        onClick={() => setIsGuideOpen(true)} 
+        className="fixed right-0 bg-[#f8f9fa] border border-[#eaeaec] border-r-0 text-[#212c46] py-8 px-1.5 rounded-l-xl shadow-md hover:bg-[#3f809e] hover:text-white hover:border-[#3f809e] transition-all duration-500 z-[100] flex flex-col items-center gap-4 group cursor-pointer" 
+        style={{ top: '80px' }}
+      >
+        <HelpCircle size={18} className="shrink-0 group-hover:rotate-12 transition-transform text-[#7a8b95] group-hover:text-white" />
+        <span className="font-black tracking-[0.3em] [writing-mode:vertical-rl] rotate-180 whitespace-nowrap uppercase text-[11px] font-mono">USER GUIDE</span>
+      </button>
+
+      <UserGuidePanel isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
       {/* Banner / Header Title Area */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between bg-white px-6 py-5 rounded-[24px] border border-slate-100/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-[#3f809e]">
-            <Award size={15} />
-            <span className="text-[10px] uppercase tracking-[0.2em] font-black">Performance Alignment Hub</span>
+      <div className="h-14 px-8 flex flex-row items-center justify-between gap-4 z-20 shrink-0 bg-transparent">
+        <div className="flex items-center gap-5">
+          <div className="relative flex items-center justify-center cursor-default shrink-0">
+            <div className="absolute inset-0 bg-[#3f809e] blur-[15px] opacity-20 rounded-full"></div>
+            <div className="relative z-10 w-10 h-10 border border-slate-200 rounded-2xl bg-white/50 backdrop-blur-sm shadow-sm flex items-center justify-center">
+              <Award size={20} strokeWidth={2.5} className="text-[#3f809e]" />
+            </div>
           </div>
-          <h1 className="text-xl lg:text-2xl font-black text-[#212c46] tracking-tight uppercase mt-1">
-            Employee Performance <span className="text-[#b58c4f]">KPI Calibration</span>
-          </h1>
-          <p className="text-xs text-[#7a8b95] font-semibold mt-1">
-            Execute professional corporate valuations, calibrate appraisal parameters, and sync data instantly.
-          </p>
+          <div>
+            <h3 className="font-black text-[#212c46] uppercase tracking-tighter leading-none" style={{ fontSize: '24px' }}>
+              การประเมินและคาร์ลิเบรต <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#657f4d] to-[#b58c4f]">EVALUATION & APPRAISALS</span>
+            </h3>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mt-0.5 leading-none">
+              ระบบวิเคราะห์ ประเมินผลงานพนักงาน และตรวจสอบการปรับค่านั้นๆ แบบเรียลไทม์
+            </p>
+          </div>
         </div>
 
         {/* Action button cluster */}
         <div className="flex flex-wrap gap-2">
           <button 
             onClick={handleRefresh}
-            className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-[#212c46] text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl transition-all shadow-sm"
+            className="flex items-center gap-1.5 bg-slate-150 hover:bg-slate-200 text-[#212c46] text-[10px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl transition-all shadow-sm"
           >
             Refresh Hub
           </button>
@@ -589,8 +679,9 @@ export default function AppraisalsPage() {
         </div>
       </div>
 
-      {/* KPI Stats Panel Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="px-4 sm:px-8 w-full mt-[2px] space-y-4">
+        {/* KPI Stats Panel Section */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard 
           title="Average Score" 
           value={`${stats.averageScore} / 100`} 
@@ -1642,6 +1733,7 @@ export default function AppraisalsPage() {
         )}
       </AnimatePresence>
 
+      </div>
     </div>
   );
 }

@@ -24,13 +24,19 @@ import CompanyRegulations from './pages/Disciplinary/Regulations';
 import EngagementRelationship from './pages/LaborRelations/Engagement';
 import SportsSocialEvents from './pages/LaborRelations/Sports';
 import UnionGrievances from './pages/LaborRelations/Union';
+import InternalPr from './pages/LaborRelations/Pr';
+import ExternalActivities from './pages/LaborRelations/External';
 import TurnoverAnalysis from './pages/Reports/Turnover';
+import SummaryReport from './pages/Reports/Summary';
+import WorkforceReport from './pages/Reports/Workforce';
 import BenefitsWelfare from './pages/Benefits/Welfare';
 import AiCopilot from './pages/AiCopilot';
 import DocSummarizer from './pages/DocSummarizer';
 import HrCalendar from './pages/HrCalendar';
 import DevPermit from './pages/DevPermit';
 import SystemConfig from './pages/SystemConfig';
+import GoogleSheetsSync from './pages/GoogleSheetsSync';
+import BackgroundAutoSync from './pages/BackgroundAutoSync';
 import SystemLogs from './pages/SystemLogs';
 import NotificationCenter from './pages/NotificationCenter';
 import Appraisals from './pages/Appraisals';
@@ -59,6 +65,8 @@ import OrientationTraining from './pages/OrientationTraining';
 import OjtTraining from './pages/OjtTraining';
 import InHouseTraining from './pages/InHouseTraining';
 import PublicSeminar from './pages/PublicSeminar';
+import KpiPage from './pages/Performance/KpiPage';
+import ProbationEvaluation from './pages/Performance/ProbationPage';
 
 export default function App() {
   return (
@@ -265,9 +273,29 @@ export default function App() {
                   <Appraisals />
                 </ProtectedRoute>
               } />
+              <Route path="/performance/probation" element={
+                <ProtectedRoute>
+                  <ProbationEvaluation />
+                </ProtectedRoute>
+              } />
+              <Route path="/performance/kpi" element={
+                <ProtectedRoute>
+                  <KpiPage />
+                </ProtectedRoute>
+              } />
               <Route path="/reports/turnover" element={
                 <ProtectedRoute>
                   <TurnoverAnalysis />
+                </ProtectedRoute>
+              } />
+              <Route path="/reports/summary" element={
+                <ProtectedRoute>
+                  <SummaryReport />
+                </ProtectedRoute>
+              } />
+              <Route path="/reports/workforce" element={
+                <ProtectedRoute>
+                  <WorkforceReport />
                 </ProtectedRoute>
               } />
               <Route path="/benefits/welfare" element={
@@ -290,6 +318,16 @@ export default function App() {
               <Route path="/settings" element={
                 <ProtectedRoute isConfidential>
                   <SystemConfig />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings/sheets-sync" element={
+                <ProtectedRoute isConfidential>
+                  <GoogleSheetsSync />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings/auto-sync" element={
+                <ProtectedRoute isConfidential>
+                  <BackgroundAutoSync />
                 </ProtectedRoute>
               } />
               <Route path="/permissions" element={
@@ -335,6 +373,16 @@ export default function App() {
               <Route path="/labor-relations/union" element={
                 <ProtectedRoute>
                   <UnionGrievances />
+                </ProtectedRoute>
+              } />
+              <Route path="/labor-relations/pr" element={
+                <ProtectedRoute>
+                  <InternalPr />
+                </ProtectedRoute>
+              } />
+              <Route path="/labor-relations/external" element={
+                <ProtectedRoute>
+                  <ExternalActivities />
                 </ProtectedRoute>
               } />
               

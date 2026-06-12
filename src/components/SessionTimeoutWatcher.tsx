@@ -18,6 +18,10 @@ export default function SessionTimeoutWatcher() {
   const { isAuthenticated, logout } = useAuth();
   
   // Load session security configs from localStorage or use robust defaults
+  const [isEnabled, setIsEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('cfg_session_timeout_enabled') !== 'false';
+  });
+
   const [sessionDuration, setSessionDuration] = useState<number>(() => {
     const saved = localStorage.getItem('cfg_session_duration_sec');
     return saved ? parseInt(saved, 10) : 900; // default 15 minutes
@@ -40,12 +44,14 @@ export default function SessionTimeoutWatcher() {
   // Keep state updated in case localStorage changes from settings page
   useEffect(() => {
     const handleStorageChange = () => {
+      const isConfigEnabled = localStorage.getItem('cfg_session_timeout_enabled') !== 'false';
       const savedDuration = localStorage.getItem('cfg_session_duration_sec');
       const savedThreshold = localStorage.getItem('cfg_warn_threshold_sec');
       
       const newDuration = savedDuration ? parseInt(savedDuration, 10) : 900;
       const newThreshold = savedThreshold ? parseInt(savedThreshold, 10) : 120;
 
+      setIsEnabled(isConfigEnabled);
       setSessionDuration(newDuration);
       setWarnThreshold(newThreshold);
       
@@ -67,7 +73,7 @@ export default function SessionTimeoutWatcher() {
 
   // Synthesize warning bell acoustic chime using Web Audio API to alert user politely
   const playWarningChime = () => {
-    if (!soundEnabledRef.current) return;
+    if (!soundEnabledRef.current || !isEnabled) return;
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
@@ -104,8 +110,8 @@ export default function SessionTimeoutWatcher() {
 
   // Main timer handler
   useEffect(() => {
-    if (!isAuthenticated) {
-      // Clear timers and close warnings when logged out
+    if (!isAuthenticated || !isEnabled) {
+      // Clear timers and close warnings when logged out or disabled
       if (timerRef.current) clearInterval(timerRef.current);
       setIsWarningOpen(false);
       return;
@@ -116,37 +122,36 @@ export default function SessionTimeoutWatcher() {
     lastActiveRef.current = Date.now();
 
     timerRef.current = setInterval(() => {
-      // Periodic countdown check
-      setTimeLeft((prev) => {
-        const nextTime = Math.max(0, prev - 1);
-        
-        // Handle trigger warnings
-        if (nextTime <= warnThreshold && nextTime > 0) {
-          if (!isWarningOpen) {
-            setIsWarningOpen(true);
-            playWarningChime();
-          }
-        }
-
-        // Handle auto-logout on zero
-        if (nextTime === 0) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          handleSessionExpired();
-          return 0;
-        }
-
-        return nextTime;
-      });
+      setTimeLeft((prev) => Math.max(0, prev - 1));
     }, 1000);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isAuthenticated, sessionDuration, warnThreshold]);
+  }, [isAuthenticated, isEnabled, sessionDuration]);
+
+  // Handle side effects on timer ticks (warning modal, play chime, auto logout)
+  useEffect(() => {
+    if (!isAuthenticated || !isEnabled) return;
+
+    // Handle warning activation
+    if (timeLeft <= warnThreshold && timeLeft > 0) {
+      if (!isWarningOpen) {
+        setIsWarningOpen(true);
+        playWarningChime();
+      }
+    }
+
+    // Handle auto-logout on zero
+    if (timeLeft === 0) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      handleSessionExpired();
+    }
+  }, [timeLeft, isAuthenticated, isEnabled, warnThreshold, isWarningOpen]);
 
   // Monitor user activities to keep session fresh
   useEffect(() => {
-    if (!isAuthenticated || isWarningOpen) return;
+    if (!isAuthenticated || !isEnabled || isWarningOpen) return;
 
     const handleUserActivity = () => {
       const now = Date.now();
@@ -167,11 +172,11 @@ export default function SessionTimeoutWatcher() {
     return () => {
       events.forEach(event => window.removeEventListener(event, handleUserActivity));
     };
-  }, [isAuthenticated, isWarningOpen, sessionDuration]);
+  }, [isAuthenticated, isEnabled, isWarningOpen, sessionDuration]);
 
   // Sync across screens if someone is active in another tab
   useEffect(() => {
-    if (!isAuthenticated || isWarningOpen) return;
+    if (!isAuthenticated || !isEnabled || isWarningOpen) return;
 
     const handleStorageSync = (e: StorageEvent) => {
       if (e.key === 'session_last_activity_ts' && e.newValue) {
@@ -182,7 +187,7 @@ export default function SessionTimeoutWatcher() {
 
     window.addEventListener('storage', handleStorageSync);
     return () => window.removeEventListener('storage', handleStorageSync);
-  }, [isAuthenticated, isWarningOpen, sessionDuration]);
+  }, [isAuthenticated, isEnabled, isWarningOpen, sessionDuration]);
 
   // Reset/Extend the session
   const extendSession = () => {
@@ -244,6 +249,8 @@ export default function SessionTimeoutWatcher() {
   // Compute stats/warnings
   const percentLeft = (timeLeft / sessionDuration) * 100;
   const isUrgent = timeLeft <= 30; // highlight yellow/red under 30 seconds
+
+  if (!isEnabled) return null;
 
   return (
     <>

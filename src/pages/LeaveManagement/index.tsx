@@ -208,6 +208,8 @@ export default function LeaveManagement({ role = 'staff' }: LeaveManagementProps
   const [selectedDept, setSelectedDept] = useState<string>('All');
   const [selectedType, setSelectedType] = useState<string>('All');
   const [selectedStatus, setSelectedStatus] = useState<string>('All');
+  const [selectedMonth, setSelectedMonth] = useState<string>('All');
+  const [selectedYear, setSelectedYear] = useState<string>('All');
   const [searchEmployeeQuery, setSearchEmployeeQuery] = useState<string>('');
 
   // Dropdown Open States for Custom Premium Filters
@@ -763,12 +765,56 @@ export default function LeaveManagement({ role = 'staff' }: LeaveManagementProps
     ];
   }, [focusedEmployeeLeavesTimeline]);
 
+  // Helper for date extraction
+  const checkMonthYear = (dateStr: string | undefined, mFilter: string, yFilter: string) => {
+    if (!dateStr) return true;
+    const parts = dateStr.split('-');
+    const y = parts[0];
+    const m = parts[1];
+    const mMatch = mFilter === 'All' || m === mFilter;
+    const yMatch = yFilter === 'All' || y === yFilter;
+    return mMatch && yMatch;
+  };
+
+  const yearsList = useMemo(() => {
+    const yrs = new Set<string>();
+    leaves.forEach(l => { if (l.start) yrs.add(l.start.split('-')[0]); });
+    yrs.add('2026');
+    return ['All', ...Array.from(yrs).sort()];
+  }, [leaves]);
+
+  const monthsList = useMemo(() => [
+    { value: 'All', label_en: 'All Months', label_th: 'ทุกเดือน' },
+    { value: '01', label_en: 'January', label_th: 'มกราคม' },
+    { value: '02', label_en: 'February', label_th: 'กุมภาพันธ์' },
+    { value: '03', label_en: 'March', label_th: 'มีนาคม' },
+    { value: '04', label_en: 'April', label_th: 'เมษายน' },
+    { value: '05', label_en: 'May', label_th: 'พฤษภาคม' },
+    { value: '06', label_en: 'June', label_th: 'มิถุนายน' },
+    { value: '07', label_en: 'July', label_th: 'กรกฎาคม' },
+    { value: '08', label_en: 'August', label_th: 'สิงหาคม' },
+    { value: '09', label_en: 'September', label_th: 'กันยายน' },
+    { value: '10', label_en: 'October', label_th: 'ตุลาคม' },
+    { value: '11', label_en: 'November', label_th: 'พฤศจิกายน' },
+    { value: '12', label_en: 'December', label_th: 'ธันวาคม' }
+  ], []);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { All: leaves.length, Pending: 0, Approved: 0, Rejected: 0 };
+    leaves.forEach(l => {
+      if (l.status === 'Pending HR Approval' || l.status === 'Pending') counts['Pending']++;
+      else if (l.status === 'Approved') counts['Approved']++;
+      else if (l.status === 'Rejected') counts['Rejected']++;
+    });
+    return counts;
+  }, [leaves]);
+
   // Filter company wide database entries (HR ONLY)
   const filteredSystemLeaves = useMemo(() => {
     return leaves.filter(l => {
       const matchDept = selectedDept === 'All' || l.department === selectedDept;
       const matchType = selectedType === 'All' || l.type === selectedType;
-      const matchStatus = selectedStatus === 'All' || l.status === selectedStatus;
+      const matchStatus = selectedStatus === 'All' || l.status === selectedStatus || (selectedStatus === 'Pending' && (l.status === 'Pending HR Approval' || l.status === 'Pending'));
       
       const searchTxt = searchEmployeeQuery.toLowerCase();
       const matchSearch = !searchTxt || 
@@ -776,9 +822,11 @@ export default function LeaveManagement({ role = 'staff' }: LeaveManagementProps
         l.reason?.toLowerCase().includes(searchTxt) ||
         l.id?.toLowerCase().includes(searchTxt);
 
-      return matchDept && matchType && matchStatus && matchSearch;
+      const matchDate = checkMonthYear(l.start, selectedMonth, selectedYear);
+
+      return matchDept && matchType && matchStatus && matchSearch && matchDate;
     });
-  }, [leaves, selectedDept, selectedType, selectedStatus, searchEmployeeQuery]);
+  }, [leaves, selectedDept, selectedType, selectedStatus, searchEmployeeQuery, selectedMonth, selectedYear]);
 
   // Global HR level statistics
   const statistics = useMemo(() => {
@@ -2187,18 +2235,51 @@ export default function LeaveManagement({ role = 'staff' }: LeaveManagementProps
                 </div>
 
                 {/* Select Status */}
-                <div>
+                <div className="flex flex-col gap-1">
                   <label className="text-[9px] font-black uppercase text-slate-500 tracking-wider block mb-1">Approval Stage</label>
-                  <select
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:border-[#3f809e] cursor-pointer"
-                  >
-                    <option value="All">All Stages</option>
-                    <option value="Pending HR Approval">Pending HR Approval</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Rejected">Rejected</option>
-                  </select>
+                  <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-xs">
+                    <select
+                      value={selectedStatus}
+                      onChange={(e) => setSelectedStatus(e.target.value)}
+                      className="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer focus:outline-none w-full"
+                    >
+                      <option value="All">All Stages ({statusCounts['All']})</option>
+                      <option value="Pending">Pending ({statusCounts['Pending']})</option>
+                      <option value="Approved">Approved ({statusCounts['Approved']})</option>
+                      <option value="Rejected">Rejected ({statusCounts['Rejected']})</option>
+                    </select>
+                    <span className="shrink-0 bg-[#212c46] text-white font-mono text-[9px] px-1.5 py-0.5 rounded-md font-black min-w-[20px] text-center">
+                      {statusCounts[selectedStatus] !== undefined ? statusCounts[selectedStatus] : statusCounts['All']}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Date Picker for Month and Year */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-wider block mb-1">Leave Month</label>
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs">
+                    <CalendarDays size={13} className="text-[#b58c4f] shrink-0" />
+                    <select
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      className="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer focus:outline-none w-full"
+                    >
+                      <option value="All">All Months</option>
+                      {monthsList.map(m => (
+                        <option key={m.value} value={m.value}>{m.label_en}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(e.target.value)}
+                      className="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer focus:outline-none shrink-0"
+                    >
+                      <option value="All">All</option>
+                      {yearsList.filter(y => y !== 'All').map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>

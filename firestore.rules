@@ -125,5 +125,25 @@ service cloud.firestore {
     match /system_exports_audit/{id} {
       allow read, write: if true;
     }
+
+    // Collection: external_activities
+    match /external_activities/{id} {
+      allow read, write: if true;
+    }
+
+    // Collection: kpi_department
+    match /kpi_department/{id} {
+      allow read, write: if true;
+    }
+
+    // Collection: kpi_individual
+    match /kpi_individual/{id} {
+      allow read, write: if true;
+    }
+
+    // Collection: probation_evaluations
+    match /probation_evaluations/{id} {
+      allow read, write: if true;
+    }
   }
 }

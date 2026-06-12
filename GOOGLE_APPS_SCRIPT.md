@@ -4,16 +4,126 @@ Copy this code into your Google Apps Script editor (Extensions > Apps Script) in
 
 ```javascript
 /**
- * WMS Master - Google Sheets Backend
- * Handles GET and POST requests from the Frontend
+ * SMART-HR / SMART LAW API (Google Apps Script Backend)
+ * 
+ * 🏛 Architecture:
+ * 1. Frontend: React + TailwindCSS (Hosted on Cloudflare/Vercel)
+ * 2. Backend: Google Apps Script (This file)
+ * 3. Database: Google Sheets
+ * 
+ * 🚀 How to deploy:
+ * 1. Go to "Deploy" -> "New deployment"
+ * 2. Select "Web app"
+ * 3. Execute as: "Me"
+ * 4. Who has access: "Anyone"
+ * 5. Click "Deploy" and copy the Web App URL.
+ * 6. Paste the Web App URL into the Frontend configuration (e.g. `src/services/GoogleAppsScriptService.ts`).
+ * 
+ * 🛠 Setup Database:
+ * Select `setupDatabase` in the Run menu and click Run to create all required sheets and headers.
  */
 
-function doPost(e) {
-  const lock = LockService.getScriptLock();
-  try {
-    // Wait for up to 30 seconds for other processes to finish
-    lock.waitLock(30000);
+const GLOBAL_SHEETS_CONFIG = {
+    // ผู้ใช้งานระบบ (ADMINISTRATION)
+    'Users': ['id', 'employeeId', 'name', 'role', 'permissions', 'email', 'avatar', 'isDev', 'status', 'createdAt', 'updatedAt'],
     
+    // LEGAL COLLECTIONS
+    'Laws_Labor': ['id', 'title', 'documentNo', 'issueDate', 'effectiveDate', 'status', 'summary', 'fileUrl', 'tags', 'addedBy', 'createdAt', 'updatedAt'],
+    'Laws_Safety': ['id', 'title', 'documentNo', 'issueDate', 'effectiveDate', 'status', 'summary', 'fileUrl', 'tags', 'addedBy', 'createdAt', 'updatedAt'],
+    'Laws_Environment': ['id', 'title', 'documentNo', 'issueDate', 'effectiveDate', 'status', 'summary', 'fileUrl', 'tags', 'addedBy', 'createdAt', 'updatedAt'],
+    'Laws_Food': ['id', 'title', 'documentNo', 'issueDate', 'effectiveDate', 'status', 'summary', 'fileUrl', 'tags', 'addedBy', 'createdAt', 'updatedAt'],
+    'Laws_Energy': ['id', 'title', 'documentNo', 'issueDate', 'effectiveDate', 'status', 'summary', 'fileUrl', 'tags', 'addedBy', 'createdAt', 'updatedAt'],
+    'Laws_Tax': ['id', 'title', 'documentNo', 'issueDate', 'effectiveDate', 'status', 'summary', 'fileUrl', 'tags', 'addedBy', 'createdAt', 'updatedAt'],
+    'Laws_ImportExport': ['id', 'title', 'documentNo', 'issueDate', 'effectiveDate', 'status', 'summary', 'fileUrl', 'tags', 'addedBy', 'createdAt', 'updatedAt'],
+    'Laws_Other': ['id', 'title', 'documentNo', 'issueDate', 'effectiveDate', 'status', 'summary', 'fileUrl', 'tags', 'addedBy', 'createdAt', 'updatedAt'],
+    
+    // COMPLIANCE & ACTIONS
+    'Compliance_ISO14001': ['id', 'clause', 'requirement', 'status', 'evidence', 'auditor', 'auditDate', 'dueDate', 'createdAt', 'updatedAt'],
+    'Compliance_ISO45001': ['id', 'clause', 'requirement', 'status', 'evidence', 'auditor', 'auditDate', 'dueDate', 'createdAt', 'updatedAt'],
+    'Compliance_Other': ['id', 'regulation', 'requirement', 'status', 'evidence', 'assessor', 'dueDate', 'createdAt', 'updatedAt'],
+    'Evidence_Log': ['id', 'title', 'description', 'relatedLaw', 'fileUrl', 'submittedBy', 'status', 'createdAt', 'updatedAt'],
+    'Task_ActionPlans': ['id', 'taskName', 'description', 'assignedTo', 'priority', 'status', 'dueDate', 'relatedLaw', 'progress', 'createdAt', 'updatedAt'],
+
+    // DISPUTES & COMPLAINTS
+    'Complaints': ['id', 'caseNo', 'title', 'type', 'description', 'status', 'reporter', 'assignedTo', 'resolution', 'createdAt', 'updatedAt'],
+    
+    // ADMINISTRATION (System)
+    'SystemLogs': ['id', 'userId', 'action', 'details', 'ipAddress', 'createdAt'],
+    'SystemConfig': ['id', 'category', 'key', 'value', 'description', 'updatedAt'],
+    'CalendarEvents': ['id', 'date', 'title', 'time', 'type', 'priority', 'status', 'createdAt', 'updatedAt'],
+
+    // PERFORMANCE KPIs
+    'kpi_department': ['id', 'kpiCode', 'name', 'department', 'weight', 'targetValue', 'actualValue', 'progress', 'period', 'status', 'description', 'createdAt', 'updatedAt'],
+    'kpi_individual': ['id', 'kpiCode', 'employeeId', 'employeeName', 'department', 'name', 'weight', 'targetValue', 'actualValue', 'progress', 'period', 'status', 'description', 'createdAt', 'updatedAt'],
+
+    // ADDITIONAL COLLECTIONS
+    'employees': ['id', 'employeeId', 'name', 'department', 'position', 'email', 'avatar', 'birthDate', 'hireDate', 'status', 'createdAt', 'updatedAt'],
+    'salary_master': ['id', 'empId', 'nameTh', 'nameEn', 'image', 'dept', 'jobTitle', 'payType', 'baseSalary', 'workingDays', 'allowancePos', 'allowanceIncentive', 'allowanceTravel', 'allowanceMeal', 'allowanceAccommodation', 'allowanceRisk', 'otherIncomes', 'deductTax', 'deductSSO', 'deductHousing', 'deductLoan', 'otherDeductions', 'bank', 'bankAcc', 'status', 'lastUpdate', 'history'],
+    'external_activities': ['id', 'title', 'category', 'date', 'budget', 'participants', 'status', 'partner', 'deliverable']
+};
+
+function setupDatabase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetsConfig = GLOBAL_SHEETS_CONFIG;
+
+  for (let name in sheetsConfig) {
+    let sheet = ss.getSheetByName(name);
+    if (!sheet) {
+      try {
+        sheet = ss.insertSheet(name);
+        SpreadsheetApp.flush();
+      } catch (e) {
+        sheet = ss.getSheetByName(name);
+        if (!sheet) {
+          let sheets = ss.getSheets();
+          for (let i = 0; i < sheets.length; i++) {
+            if (sheets[i].getName().toLowerCase().trim() === name.toLowerCase().trim()) {
+              sheet = sheets[i];
+              break;
+            }
+          }
+        }
+      }
+    }
+    // ตั้งค่าหัวตาราง (Headers)
+    const headers = sheetsConfig[name];
+    safeGetRange(sheet, 1, 1, 1, headers.length).setValues([headers])
+      .setFontWeight("bold")
+      .setBackground("#e8ecef")
+      .setFontColor("black");
+    
+    // Freeze แถวแรก
+    sheet.setFrozenRows(1);
+    
+    // Auto-resize คอลัมน์
+    try {
+      sheet.autoResizeColumns(1, headers.length);
+    } catch (err) {
+      Logger.log("Auto-resize failed for " + name);
+    }
+  }
+
+  // สร้าง User ตัวอย่างสำหรับ Admin (ถ้ายังไม่มี)
+  const userSheet = ss.getSheetByName("Users");
+  if (userSheet.getLastRow() === 1) {
+    userSheet.appendRow(['1', 'ADMIN001', '1234', 'System Admin', 'Admin', '{"canCreate":true,"canEdit":true,"canApprove":true,"canVerify":true}', 'Director', 'admin@hrsystem.com', '', 'true', 'Active']);
+  }
+
+  Logger.log("Database Setup Complete!");
+}
+
+function doOptions(e) {
+  return ContentService.createTextOutput('');
+}
+
+function doPost(e) {
+  var headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  };
+
+  try {
     const params = JSON.parse(e.postData.contents);
     const action = params.action;
     const sheetName = params.sheet;
@@ -21,67 +131,144 @@ function doPost(e) {
     const apiKey = params.apiKey;
     
     // Basic Security: Check API Key
-    // Set your API Key in GAS Project Settings or hardcode it here for now
     const EXPECTED_API_KEY = "your_secret_key_here"; 
-    if (apiKey !== EXPECTED_API_KEY && action !== 'login') {
-      // return createResponse("error", "Unauthorized: Invalid API Key");
-    }
+    // const EXPECTED_API_KEY = PropertiesService.getScriptProperties().getProperty('API_KEY');
     
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    // if (apiKey !== EXPECTED_API_KEY && action !== 'login') {
+      // return createResponse("error", "Unauthorized: Invalid API Key", null, headers);
+    // }
+    
+    const ss = getSpreadsheet();
+    
+    if (!ss) {
+      return createResponse("error", "Spreadsheet connection failed. Please ensure SPREADSHEET_ID is set in Script Properties or the script is bound to a Spreadsheet.", null, headers);
+    }
     
     // Auto-Provisioning: Create sheet and headers if they don't exist
-    let sheet = ss.getSheetByName(sheetName);
-    if (!sheet && sheetName) {
-      sheet = ss.insertSheet(sheetName);
-      if (data && Array.isArray(data) && data.length > 0) {
-        const headers = Object.keys(data[0]);
-        sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight("bold");
-      } else if (data && typeof data === 'object') {
-        const headers = Object.keys(data);
-        sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight("bold");
-      }
+    let sheet = null;
+    if (sheetName && action !== 'login') {
+      sheet = provisionSheetAndHeaders(ss, sheetName, data);
     }
     
-    if (!sheet && action !== 'login') {
-      return createResponse("error", "Sheet not found and could not be created: " + sheetName);
+    if (!sheet && action !== 'login' && action !== 'createSheet' && action !== 'appendRow') {
+      return createResponse("error", "Sheet not found and could not be created: " + sheetName, null, headers);
     }
 
+    let result;
     switch (action) {
       case 'read':
-        return readData(sheet, params);
-      case 'write':
-        return writeData(sheet, data);
+        result = readData(sheet, params, headers);
+        break;
       case 'lookup':
-        return lookupData(sheet, data);
+        result = lookupData(sheet, params, headers); 
+        break;
       case 'login':
-        return handleLogin(ss, data);
+        result = handleLogin(ss, data, headers);
+        break;
+      case 'createSheet':
+        const createName = params.sheetName || params.sheet;
+        const createHeaders = params.headers || params.data;
+        sheet = provisionSheetAndHeaders(ss, createName, createHeaders);
+        result = createResponse("success", "Sheet created/verified successfully: " + createName, null, headers);
+        break;
+      case 'appendRow':
+        const appendName = params.sheetName || params.sheet;
+        const appendRowData = params.rowData || params.data;
+        sheet = findSheetCaseInsensitive(ss, appendName);
+        if (!sheet) {
+          sheet = provisionSheetAndHeaders(ss, appendName, appendRowData);
+        }
+        if (Array.isArray(appendRowData)) {
+          sheet.appendRow(appendRowData);
+          result = createResponse("success", "Row appended successfully to: " + appendName, null, headers);
+        } else {
+          result = createResponse("error", "Row data must be an array for appendRow", null, headers);
+        }
+        break;
+      case 'write':
+      case 'update':
+      case 'delete':
+        const lock = LockService.getScriptLock();
+        if (!lock.tryLock(30000)) {
+          return createResponse("error", "Lock timeout: Server is busy, please try again.", null, headers);
+        }
+        try {
+          if (action === 'write') result = writeData(sheet, data, headers);
+          else if (action === 'update') result = updateData(sheet, data, headers);
+          else if (action === 'delete') result = deleteData(sheet, data, headers);
+        } finally {
+          lock.releaseLock();
+        }
+        break;
       default:
-        return createResponse("error", "Unknown action: " + action);
+        result = createResponse("error", "Unknown action: " + action, null, headers);
     }
+    return result;
   } catch (err) {
-    return createResponse("error", err.toString());
-  } finally {
-    // Always release the lock
-    lock.releaseLock();
+    return createResponse("error", err.toString(), null, headers);
   }
 }
 
 function doGet(e) {
-  return createResponse("success", "WMS Master API is active. Please use POST for data operations.");
+  var headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  };
+  return createResponse("success", "HR Master API is active. Please use POST for data operations.", null, headers);
 }
 
 // --- Action Handlers ---
 
-function readData(sheet, params) {
+function readData(sheet, params, headersObj) {
   const values = sheet.getDataRange().getValues();
-  const headers = values[0];
+  if (values.length <= 1) {
+    return createResponse("success", "Data retrieved", { items: [], totalCount: 0, limit: params.limit || null, offset: params.offset || 0 }, headersObj);
+  }
+
+  const sheetName = params.sheet;
+  const sheetHeaders = values[0];
+  const canonicalHeaders = GLOBAL_SHEETS_CONFIG[sheetName] || [];
+
+  const headerMap = {};
+  sheetHeaders.forEach((h, i) => {
+    const rawH = String(h).trim();
+    const cleanHeader = rawH.toLowerCase().replace(/\s/g, '');
+    let mapped = rawH; 
+    
+    for (const canon of canonicalHeaders) {
+      if (canon.toLowerCase().replace(/\s/g, '') === cleanHeader) {
+        mapped = canon;
+        break;
+      }
+    }
+    headerMap[i] = mapped;
+  });
+
   let data = values.slice(1).map(row => {
     const obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
+    sheetHeaders.forEach((_, i) => {
+      const key = headerMap[i];
+      let val = row[i];
+      if ((key === 'groups' || key === 'history' || key === 'permissions' || key === 'items' || key === 'otherIncomes' || key === 'otherDeductions') && typeof val === 'string') {
+        const trimmed = val.trim();
+        if (trimmed.startsWith('[')) {
+          try { val = JSON.parse(trimmed); } catch(e) { val = []; }
+        } else if (trimmed.startsWith('{')) {
+          try { val = JSON.parse(trimmed); } catch(e) { val = {}; }
+        } else if (trimmed.includes('java.lang.Object')) {
+          val = ["Format Error"];
+        } else if (trimmed !== '') {
+          val = trimmed.split(',').map(s => s.trim()).filter(Boolean);
+        } else {
+          val = [];
+        }
+      }
+      obj[key] = val;
+    });
     return obj;
   });
 
-  // Support Pagination
   const limit = params.limit || null;
   const offset = params.offset || 0;
   
@@ -95,35 +282,207 @@ function readData(sheet, params) {
     totalCount: totalCount,
     limit: limit,
     offset: offset
-  });
+  }, headersObj);
 }
 
-function writeData(sheet, data) {
+function writeData(sheet, data, headersObj) {
   if (!Array.isArray(data)) data = [data];
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (data.length === 0) return createResponse("success", "No data to write", null, headersObj);
+
+  // Automatically expand headers to include any new properties present in our data object
+  ensureHeadersExist(sheet, data[0]);
+
+  const lastCol = Math.max(1, sheet.getLastColumn());
+  var sheetHeaders = [];
+  try {
+    sheetHeaders = safeGetRange(sheet, 1, 1, 1, lastCol).getValues()[0];
+  } catch (err) {
+    // Empty sheet
+  }
+  sheetHeaders = sheetHeaders.map(function(h) { return String(h).trim(); }).filter(Boolean);
   
-  data.forEach(item => {
-    const row = headers.map(h => item[h] || "");
-    sheet.appendRow(row);
-  });
-  
-  // Auto-Cleanup: Remove empty rows to keep the sheet lean and fast
-  const lastRow = sheet.getLastRow();
-  const maxRows = sheet.getMaxRows();
-  if (maxRows > lastRow + 1) {
-    sheet.deleteRows(lastRow + 1, maxRows - lastRow - 1);
+  // High-reliability safeguard: If sheetHeaders is empty, build it from the first item's keys!
+  if (sheetHeaders.length === 0) {
+    sheetHeaders = Object.keys(data[0]);
+    if (sheetHeaders.length === 0) {
+      sheetHeaders = ['id', 'createdAt', 'updatedAt'];
+    }
+    
+    safeGetRange(sheet, 1, 1, 1, sheetHeaders.length).setValues([sheetHeaders])
+      .setFontWeight("bold")
+      .setBackground("#e6b8af")
+      .setFontColor("black");
+    sheet.setFrozenRows(1);
   }
   
-  return createResponse("success", "Data saved successfully");
+  const rows = data.map(item => {
+    return sheetHeaders.map(h => {
+      var val = item[h];
+      if (Array.isArray(val) || (typeof val === 'object' && val !== null)) return JSON.stringify(val);
+      return val != null ? val : "";
+    });
+  });
+  
+  const lastRow = Math.max(1, sheet.getLastRow());
+  
+  // Write content safely using safeGetRange
+  safeGetRange(sheet, lastRow + 1, 1, rows.length, sheetHeaders.length).setValues(rows);
+  
+  const maxRows = sheet.getMaxRows();
+  const currentTotalRows = lastRow + rows.length;
+  if (maxRows > currentTotalRows + 1) {
+    sheet.deleteRows(currentTotalRows + 1, maxRows - currentTotalRows - 1);
+  }
+  
+  return createResponse("success", "Data saved successfully (" + rows.length + " rows)", null, headersObj);
 }
 
-function handleLogin(ss, credentials) {
-  const userSheet = ss.getSheetByName("Users");
-  const values = userSheet.getDataRange().getValues();
+function updateData(sheet, data, headersObj) {
+  if (!Array.isArray(data)) data = [data];
+  if (data.length === 0) return createResponse("error", "No data provided for update", null, headersObj);
+
+  // Automatically expand headers to include any new properties present in our data object
+  ensureHeadersExist(sheet, data[0]);
+
+  const range = sheet.getDataRange();
+  const values = range.getValues();
   const headers = values[0];
+  const idIndex = headers.indexOf('id');
+  if (idIndex === -1) return createResponse("error", "'id' column not found for update", null, headersObj);
+
+  let updatedCount = 0;
+  const updatesMap = {};
+  data.forEach(item => {
+    if (item.id != null) updatesMap[String(item.id)] = item;
+  });
+
+  for (let i = 1; i < values.length; i++) {
+    const rowId = String(values[i][idIndex]);
+    if (updatesMap[rowId]) {
+      const updateItem = updatesMap[rowId];
+      headers.forEach((header, colIdx) => {
+        if (updateItem.hasOwnProperty(header)) {
+          var val = updateItem[header];
+          if (Array.isArray(val) || (typeof val === 'object' && val !== null)) val = JSON.stringify(val);
+          values[i][colIdx] = val != null ? val : "";
+        }
+      });
+      updatedCount++;
+    }
+  }
+
+  if (updatedCount > 0) {
+    range.setValues(values);
+  }
+
+  return createResponse("success", `Updated ${updatedCount} rows`, null, headersObj);
+}
+
+function deleteData(sheet, data, headersObj) {
+  if (!Array.isArray(data)) data = [data];
+  if (data.length === 0) return createResponse("error", "No data provided for delete", null, headersObj);
+
+  const range = sheet.getDataRange();
+  const values = range.getValues();
+  const headers = values[0];
+  const idIndex = headers.indexOf('id');
+  if (idIndex === -1) return createResponse("error", "'id' column not found for delete", null, headersObj);
+
+  const idsToDelete = new Set(data.map(item => String(item.id)));
+  const newValues = [headers];
+  let deletedCount = 0;
+
+  for (let i = 1; i < values.length; i++) {
+    if (!idsToDelete.has(String(values[i][idIndex]))) {
+      newValues.push(values[i]);
+    } else {
+      deletedCount++;
+    }
+  }
+
+  if (deletedCount > 0) {
+    sheet.clearContents();
+    safeGetRange(sheet, 1, 1, newValues.length, headers.length).setValues(newValues);
+  }
+
+  return createResponse("success", `Deleted ${deletedCount} rows`, null, headersObj);
+}
+
+function lookupData(sheet, params, headersObj) {
+  const dataList = params.data;
+  const matchType = params.matchType || 'exact'; 
+  
+  if (!dataList || dataList.length === 0) return createResponse("error", "Lookup requires 'data' array containing search object", null, headersObj);
+  var criteria = dataList[0]; 
+  var criteriaKeys = Object.keys(criteria);
+  
+  var rows = sheet.getDataRange().getValues();
+  if (rows.length <= 1) return createResponse("success", "No data found", { items: [] }, headersObj);
+  var sheetHeaders = rows[0];
+  var result = [];
+  
+  for (var i = 1; i < rows.length; i++) {
+      var match = true;
+      for (var c = 0; c < criteriaKeys.length; c++) {
+          var key = criteriaKeys[c];
+          var colIndex = sheetHeaders.indexOf(key);
+          
+          if (colIndex === -1) {
+             match = false;
+             break;
+          }
+
+          var rowValue = rows[i][colIndex].toString().toLowerCase();
+          var criteriaValue = criteria[key].toString().toLowerCase();
+
+          if (matchType === 'includes') {
+             if (!rowValue.includes(criteriaValue)) {
+                 match = false;
+                 break;
+             }
+          } else { 
+             if (rowValue !== criteriaValue) {
+                 match = false;
+                 break;
+             }
+          }
+      }
+      
+      if (match) {
+          var obj = {};
+          for (var j = 0; j < sheetHeaders.length; j++) {
+              obj[sheetHeaders[j]] = rows[i][j];
+          }
+          result.push(obj);
+      }
+  }
+
+  const limit = params.limit || null;
+  const offset = params.offset || 0;
+  let finalData = result;
+  if (limit !== null) {
+      finalData = result.slice(offset, offset + limit);
+  }
+
+  return createResponse("success", "Lookup successful", { 
+      items: finalData,
+      totalCount: result.length,
+      limit: limit,
+      offset: offset 
+  }, headersObj);
+}
+
+function handleLogin(ss, credentials, headersObj) {
+  const userSheet = ss.getSheetByName("Users");
+  if (!userSheet) return createResponse("error", "Users sheet not found", null, headersObj);
+
+  const values = userSheet.getDataRange().getValues();
+  if (values.length <= 1) return createResponse("error", "No users found", null, headersObj);
+
+  const columns = values[0];
   const users = values.slice(1).map(row => {
     const obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
+    columns.forEach((h, i) => obj[h] = row[i]);
     return obj;
   });
 
@@ -133,33 +492,246 @@ function handleLogin(ss, credentials) {
   );
 
   if (user) {
-    // Format response to match App's User interface
+    let perms = {};
+    if (typeof user.permissions === 'string' && user.permissions.startsWith('{')) {
+      try { perms = JSON.parse(user.permissions); } catch(e) {}
+    } else if (typeof user.permissions === 'object') {
+      perms = user.permissions;
+    }
+    
+    // Default fallback if parsing fails or returns empty
+    if (!perms.hasOwnProperty('canCreate')) {
+      perms = {
+        canCreate: user.role === 'Admin' || user.role === 'Editor',
+        canEdit: user.role === 'Admin' || user.role === 'Editor',
+        canApprove: user.role === 'Admin',
+        canVerify: user.role === 'Admin' || user.role === 'Editor'
+      };
+    }
+
     const userData = {
       id: user.id || user.employeeId,
       employeeId: user.employeeId,
       name: user.name,
       role: user.role,
       avatar: user.avatar || "",
-      permissions: {
-        canCreate: user.role === 'Admin' || user.role === 'Editor',
-        canEdit: user.role === 'Admin' || user.role === 'Editor',
-        canApprove: user.role === 'Admin',
-        canVerify: user.role === 'Admin' || user.role === 'Editor'
-      }
+      permissions: perms,
+      isDev: user.isDev === 'true' || user.isDev === true
     };
-    return createResponse("success", "Login successful", userData);
+    return createResponse("success", "Login successful", userData, headersObj);
   } else {
-    return createResponse("error", "Invalid Staff Code or ID Card Number");
+    return createResponse("error", "Invalid Staff Code or ID Card Number", null, headersObj);
   }
 }
 
 // --- Helpers ---
 
-function createResponse(status, message, data = null) {
+function createResponse(status, message, data, headersObj) {
   const result = { status: status, message: message, data: data };
   return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+function ensureDimensions(sheet, requiredRows, requiredCols) {
+  try {
+    var maxRows = Math.max(1, sheet.getMaxRows());
+    var maxColumns = Math.max(1, sheet.getMaxColumns());
+    
+    var rRows = Math.max(1, requiredRows);
+    var rCols = Math.max(1, requiredCols);
+    
+    var modified = false;
+    if (rRows > maxRows) {
+      sheet.insertRowsAfter(maxRows, rRows - maxRows);
+      modified = true;
+    }
+    if (rCols > maxColumns) {
+      sheet.insertColumnsAfter(maxColumns, rCols - maxColumns);
+      modified = true;
+    }
+    
+    if (modified) {
+      SpreadsheetApp.flush();
+    }
+  } catch (err) {
+    Logger.log("ensureDimensions failed: " + err.toString());
+  }
+}
+
+function safeGetRange(sheet, row, col, numRows, numCols) {
+  var rRow = Math.max(1, row);
+  var rCol = Math.max(1, col);
+  var rNumRows = Math.max(1, numRows);
+  var rNumCols = Math.max(1, numCols);
+  
+  ensureDimensions(sheet, rRow + rNumRows - 1, rCol + rNumCols - 1);
+  return sheet.getRange(rRow, rCol, rNumRows, rNumCols);
+}
+
+function getSpreadsheet() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const sid = props.getProperty('SPREADSHEET_ID');
+    if (sid) {
+      return SpreadsheetApp.openById(sid);
+    }
+  } catch(e) {
+    Logger.log("Error reading SPREADSHEET_ID: " + e.toString());
+  }
+  
+  try {
+    return SpreadsheetApp.getActiveSpreadsheet();
+  } catch(e) {
+    Logger.log("Error getting active spreadsheet: " + e.toString());
+    return null;
+  }
+}
+
+function findSheetCaseInsensitive(ss, name) {
+  if (!name) return null;
+  
+  // Try exact match first
+  var sheet = ss.getSheetByName(name);
+  if (sheet) return sheet;
+  
+  // Try case-insensitive and alphanumeric-only characters normalization
+  const sheets = ss.getSheets();
+  const lowerName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  
+  for (let i = 0; i < sheets.length; i++) {
+    const sheetName = sheets[i].getName();
+    if (sheetName.toLowerCase().replace(/[^a-z0-9]/g, '') === lowerName) {
+      return sheets[i];
+    }
+  }
+  return null;
+}
+
+function provisionSheetAndHeaders(ss, sheetName, data) {
+  if (!sheetName) return null;
+  let sheet = findSheetCaseInsensitive(ss, sheetName);
+  let isNew = false;
+  
+  if (!sheet) {
+    const lock = LockService.getScriptLock();
+    var hasLock = false;
+    try {
+      // Wait for up to 15 seconds to handle concurrent creations of the same sheet
+      hasLock = lock.tryLock(15000);
+      
+      // Inside lock, check again because another thread might have created it
+      sheet = findSheetCaseInsensitive(ss, sheetName);
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+        SpreadsheetApp.flush();
+        isNew = true;
+      }
+    } catch (e) {
+      // If insertion fails (e.g., sheet already exists due to caching / unicode variations / invisible chars)
+      // Retrieve it using standard fallback methods
+      sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        let sheets = ss.getSheets();
+        for (let i = 0; i < sheets.length; i++) {
+          let sName = sheets[i].getName();
+          if (sName.toLowerCase().trim() === sheetName.toLowerCase().trim() ||
+              sName.toLowerCase().replace(/[^a-z0-9]/g, '') === sheetName.toLowerCase().replace(/[^a-z0-9]/g, '')) {
+            sheet = sheets[i];
+            break;
+          }
+        }
+      }
+      isNew = false;
+    } finally {
+      if (hasLock) {
+        try {
+          lock.releaseLock();
+        } catch (e) {}
+      }
+    }
+  }
+  
+  if (!sheet) {
+    Logger.log("Failed to provision sheet for name: " + sheetName);
+    return null;
+  }
+  
+  let columns = GLOBAL_SHEETS_CONFIG[sheetName];
+  if (!columns || columns.length === 0) {
+    if (data) {
+      if (Array.isArray(data) && data.length > 0) {
+        columns = Object.keys(data[0]);
+      } else if (typeof data === 'object' && Object.keys(data).length > 0) {
+        if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+          columns = Object.keys(data.items[0]);
+        } else {
+          columns = Object.keys(data).filter(function(key) {
+            return key !== 'limit' && key !== 'offset' && key !== 'matchType';
+          });
+        }
+      }
+    }
+  }
+  
+  if ((!columns || columns.length === 0) && isNew) {
+    columns = ['id', 'createdAt', 'updatedAt'];
+  }
+  
+  if (columns && columns.length > 0) {
+    safeGetRange(sheet, 1, 1, 1, columns.length).setValues([columns])
+      .setFontWeight("bold")
+      .setBackground("#e6b8af")
+      .setFontColor("black");
+    
+    sheet.setFrozenRows(1);
+    try {
+      sheet.autoResizeColumns(1, columns.length);
+    } catch (err) {
+      Logger.log("Auto-resize columns failed: " + err.toString());
+    }
+  }
+  
+  return sheet;
+}
+
+function ensureHeadersExist(sheet, sampleItem) {
+  if (!sampleItem || typeof sampleItem !== 'object') return;
+  
+  const lastCol = Math.max(1, sheet.getLastColumn());
+  let sheetHeaders = [];
+  try {
+    sheetHeaders = safeGetRange(sheet, 1, 1, 1, lastCol).getValues()[0];
+  } catch (err) {
+    // Empty sheet
+  }
+  
+  if (!sheetHeaders || sheetHeaders.length === 0 || sheetHeaders[0] === "") {
+    sheetHeaders = [];
+  } else {
+    sheetHeaders = sheetHeaders.map(function(h) { return String(h).trim(); }).filter(Boolean);
+  }
+  
+  const itemKeys = Object.keys(sampleItem);
+  const missingKeys = itemKeys.filter(function(k) {
+    return sheetHeaders.indexOf(k) === -1;
+  });
+  
+  if (missingKeys.length > 0) {
+    const finalHeaders = sheetHeaders.concat(missingKeys);
+    safeGetRange(sheet, 1, 1, 1, finalHeaders.length).setValues([finalHeaders])
+      .setFontWeight("bold")
+      .setBackground("#e6b8af")
+      .setFontColor("black");
+    
+    sheet.setFrozenRows(1);
+    try {
+      sheet.autoResizeColumns(1, finalHeaders.length);
+    } catch (err) {
+      Logger.log("Auto-resize columns failed: " + err.toString());
+    }
+  }
+}
+```
 ```
 
 ## API Security (API Key Setup)

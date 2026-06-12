@@ -160,6 +160,15 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: 'int_interviews', name: 'INTERVIEWS', path: '/interview/list' }
     ]
   },
+  { 
+    id: 'probation', 
+    name: 'PROBATION', 
+    icon: Award, 
+    category: 'RECRUITMENT',
+    subItems: [
+      { id: 'perf_probation', name: 'PROBATION EVALUATION / การประเมินผลการทดลองงาน', path: '/performance/probation' }
+    ]
+  },
 
   // PERFORMANCE & DEVELOPMENT
   { 
@@ -219,6 +228,8 @@ export const MENU_ITEMS: MenuItem[] = [
     subItems: [
       { id: 'user_permission', name: 'USER PERMISSION', path: '/permissions' },
       { id: 'system_config', name: 'SYSTEM CONFIG', path: '/settings' },
+      { id: 'sheets_sync', name: 'GOOGLE SHEETS SYNC', path: '/settings/sheets-sync' },
+      { id: 'auto_sync', name: 'AUTO-SYNC STATUS', path: '/settings/auto-sync' },
       { id: 'dev_permit', name: 'DEV PERMIT BETA', path: '/dev-permit' },
       { id: 'dev_logs', name: 'SYSTEM LOGS', path: '/dev-logs' }
     ]

@@ -204,6 +204,8 @@ export default function OjtTraining() {
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedMonth, setSelectedMonth] = useState('All');
+  const [selectedYear, setSelectedYear] = useState('All');
 
   // Modals
   const [learnerModal, setLearnerModal] = useState<{ isOpen: boolean; record: Learner | null }>({ isOpen: false, record: null });
@@ -268,6 +270,46 @@ export default function OjtTraining() {
     return { total, active, completed, totalHours, average };
   }, [learners]);
 
+  // Helper for date extraction
+  const checkMonthYear = (dateStr: string | undefined, mFilter: string, yFilter: string) => {
+    if (!dateStr) return true;
+    const parts = dateStr.split('-');
+    const y = parts[0];
+    const m = parts[1];
+    const mMatch = mFilter === 'All' || m === mFilter;
+    const yMatch = yFilter === 'All' || y === yFilter;
+    return mMatch && yMatch;
+  };
+
+  const yearsList = useMemo(() => {
+    const yrs = new Set<string>();
+    coachingLogs.forEach(log => { if (log.date) yrs.add(log.date.split('-')[0]); });
+    yrs.add('2026');
+    return ['All', ...Array.from(yrs).sort()];
+  }, [coachingLogs]);
+
+  const months = useMemo(() => [
+    { value: 'All', label_en: 'All Months', label_th: 'ทุกเดือน' },
+    { value: '01', label_en: 'January', label_th: 'มกราคม' },
+    { value: '02', label_en: 'February', label_th: 'กุมภาพันธ์' },
+    { value: '03', label_en: 'March', label_th: 'มีนาคม' },
+    { value: '04', label_en: 'April', label_th: 'เมษายน' },
+    { value: '05', label_en: 'May', label_th: 'พฤษภาคม' },
+    { value: '06', label_en: 'June', label_th: 'มิถุนายน' },
+    { value: '07', label_en: 'July', label_th: 'กรกฎาคม' },
+    { value: '08', label_en: 'August', label_th: 'สิงหาคม' },
+    { value: '09', label_en: 'September', label_th: 'กันยายน' },
+    { value: '10', label_en: 'October', label_th: 'ตุลาคม' },
+    { value: '11', label_en: 'November', label_th: 'พฤศจิกายน' },
+    { value: '12', label_en: 'December', label_th: 'ธันวาคม' }
+  ], []);
+
+  const learnerStatusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: learners.length, Pending: 0, Active: 0, Completed: 0 };
+    learners.forEach(l => { if (l.status in counts) counts[l.status]++; });
+    return counts;
+  }, [learners]);
+
   // Filters logic
   const filteredLearners = useMemo(() => {
     return learners.filter(l => {
@@ -285,9 +327,10 @@ export default function OjtTraining() {
       const matchSearch = log.learnerName.toLowerCase().includes(search.toLowerCase()) || 
                           log.subject.toLowerCase().includes(search.toLowerCase()) ||
                           log.trainerName.toLowerCase().includes(search.toLowerCase());
-      return matchSearch;
+      const matchDate = checkMonthYear(log.date, selectedMonth, selectedYear);
+      return matchSearch && matchDate;
     });
-  }, [coachingLogs, search]);
+  }, [coachingLogs, search, selectedMonth, selectedYear]);
 
   const departments = useMemo(() => {
     return Array.from(new Set(learners.map(l => l.dept)));
@@ -731,13 +774,13 @@ export default function OjtTraining() {
               />
             </div>
 
-            {/* Department Filter (Only for Learners Tab) */}
-            {activeTab === 'learners' && (
+            {/* Standard filters with count badges and month/year picks */}
+            {activeTab === 'learners' ? (
               <>
                 <select
                   value={filterDept}
                   onChange={e => setFilterDept(e.target.value)}
-                  className="bg-white border border-[#eaeaec] rounded-xl px-3 py-1.5 text-[11px] font-bold text-[#212c46] outline-none"
+                  className="bg-white border border-[#eaeaec] rounded-xl px-3 py-1.5 text-[11px] font-bold text-[#212c46] outline-none shadow-xs"
                 >
                   <option value="all">All Departments</option>
                   {departments.map(dept => (
@@ -745,17 +788,52 @@ export default function OjtTraining() {
                   ))}
                 </select>
 
-                <select
-                  value={filterStatus}
-                  onChange={e => setFilterStatus(e.target.value)}
-                  className="bg-white border border-[#eaeaec] rounded-xl px-3 py-1.5 text-[11px] font-bold text-[#212c46] outline-none"
-                >
-                  <option value="all">All Status</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Active">Active</option>
-                  <option value="Completed">Completed</option>
-                </select>
+                <div className="flex items-center gap-1 bg-white border border-[#eaeaec] rounded-xl px-3 py-1.5 shadow-xs">
+                  <select
+                    value={filterStatus}
+                    onChange={e => setFilterStatus(e.target.value)}
+                    className="bg-transparent text-[11px] font-bold text-[#212c46] outline-none cursor-pointer"
+                  >
+                    <option value="all">All Status ({learnerStatusCounts['all']})</option>
+                    <option value="Pending">Pending ({learnerStatusCounts['Pending']})</option>
+                    <option value="Active">Active ({learnerStatusCounts['Active']})</option>
+                    <option value="Completed">Completed ({learnerStatusCounts['Completed']})</option>
+                  </select>
+                  <span className="shrink-0 bg-[#212c46] text-white font-mono text-[9px] px-1.5 py-0.5 rounded-md font-black min-w-[20px] text-center">
+                    {learnerStatusCounts[filterStatus] || learnerStatusCounts['all'] || 0}
+                  </span>
+                </div>
               </>
+            ) : (
+              <div className="bg-white border border-[#eaeaec] px-3 py-1.5 rounded-xl shadow-xs flex items-center justify-between gap-1.5">
+                <span className="text-[10px] font-black uppercase text-[#525f7a] tracking-wider shrink-0 flex items-center gap-1 font-mono">
+                  <Icons.Calendar size={13} className="text-[#b58c4f]" /> MONTH
+                </span>
+                <div className="flex items-center gap-1">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-1 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+                  >
+                    <option value="All">{language === 'TH' ? 'ทุกเดือน' : 'All Months'}</option>
+                    {months.filter(m => m.value !== 'All').map(m => (
+                      <option key={m.value} value={m.value}>
+                        {language === 'TH' ? m.label_th : m.label_en}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                    className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-1 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+                  >
+                    <option value="All">{language === 'TH' ? 'ทุกปี' : 'All'}</option>
+                    {yearsList.filter(y => y !== 'All').map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             )}
           </div>
         </div>

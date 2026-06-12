@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Calendar, 
   CalendarDays, 
@@ -19,7 +20,8 @@ import {
   Layers,
   Sparkles,
   SlidersHorizontal,
-  Briefcase
+  Briefcase,
+  HelpCircle
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
@@ -43,6 +45,93 @@ interface CustomHoliday {
   updatedAt?: string;
 }
 
+// User Guide Panel for Company Holidays
+function UserGuidePanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { language } = useLanguage();
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <>
+      <div 
+        className={`fixed inset-0 z-[190] bg-[#212c46]/60 backdrop-blur-sm transition-opacity duration-500 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} 
+        onClick={onClose}
+      />
+      <div 
+        className={`fixed inset-y-0 right-0 z-[200] w-full md:w-[500px] bg-white shadow-2xl transform transition-transform duration-500 ease-in-out flex flex-col border-l-4 border-[#3f809e] ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        <div className="flex justify-between items-center p-5 px-6 border-b-2 border-[#3f809e] bg-[#212c46] text-white shrink-0">
+          <div>
+            <h3 className="font-black flex items-center gap-3 uppercase tracking-widest text-[14px] font-sans">
+              <Calendar size={20} className="text-[#3f809e]"/> SYSTEM HOLIDAYS GUIDE
+            </h3>
+            <p className="text-[11px] font-bold text-[#d7d7d7] uppercase tracking-widest mt-1">
+              คู่มือจัดการวันหยุดกลุ่มบริษัท
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 text-white/50 hover:text-white rounded-xl transition-colors cursor-pointer">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 text-[#414757] text-[12px] leading-relaxed custom-scrollbar bg-white">
+          <section>
+            <h4 className="text-[13px] font-black text-[#212c46] mb-3 uppercase flex items-center gap-2 border-b border-[#eaeaec] pb-2 font-sans">
+              <Compass size={18} className="text-[#3f809e]"/> 1. วัตถุประสงค์และระบบคํานวณกลาง
+            </h4>
+            <p className="text-[12.5px] text-[#525a72]">
+              สารบัญวันหยุดองค์กรเป็นระบบอ้างอิงกลางสำหรับการทำงานข้ามสาขาและแผนก โดยระบบจะใช้ข้อมูลวันหยุดชุดนี้ร่วมคำนวณกับระบบลงเวลา เพื่อสแกนตรวจสอบว่าพนักงานมีการทำงานล่วงเวลา (OT) ในวันหยุดนักขัตฤกษ์ หรือคำนวณสิทธิ์หักวันลาที่ได้รับการคุ้มครองด้วยนโยบายบริษัทเป็นกรณีพิเศษหรือไม่
+            </p>
+          </section>
+
+          <section>
+            <h4 className="text-[13px] font-black text-[#212c46] mb-3 uppercase flex items-center gap-2 border-b border-[#eaeaec] pb-2 font-sans">
+              <Layers size={18} className="text-[#b58c4f]"/> 2. การจำแนกประเภทวันหยุด (Classifications)
+            </h4>
+            <ul className="space-y-4 text-[12px]">
+              <li className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <strong className="text-[#212c46] text-[11px] block uppercase font-mono">1. Public Holiday (วันหยุดนักขัตฤกษ์ราชการ)</strong>
+                วันหยุดสากลตามกฎหมาย เช่น วันขึ้นปีใหม่ สงกรานต์ การทำงานในวันเหล่านี้คิดอัตราค่าตอบแรงงานล่วงเวลาพิเศษตามกฎหมายแรงงาน
+              </li>
+              <li className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <strong className="text-[#212c46] text-[11px] block uppercase font-mono">2. Religious Holiday (วันหยุดสำคัญทางศาสนา)</strong>
+                วันหยุดสำหรับการถือปฏิบัติศาสนกิจราชการเชิงสัญลักษณ์ เช่น วันเข้าพรรษา วันวิสาขบูชา 
+              </li>
+              <li className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <strong className="text-[#212c46] text-[11px] block uppercase font-mono">3. Royal Holiday (วันหยุดสถาบัน)</strong>
+                ระลึกวันเกี่ยวกับสถาบันหลักและพระราชพิธีสำคัญ
+              </li>
+              <li className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <strong className="text-[#212c46] text-[11px] block uppercase font-mono">4. Corporate Holiday (วันหยุดพิเศษบริษัท)</strong>
+                วันหยุดเฉพาะหน่วยงาน หรือวันหยุดชดเชยที่ประกาศโดยคณะผู้บริหารสูงสุดของกลุ่มบริษัท T All Intelligence 
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h4 className="text-[13px] font-black text-[#212c46] mb-3 uppercase flex items-center gap-2 border-b border-[#eaeaec] pb-2 font-sans">
+              <Sparkles size={18} className="text-[#657f4d]"/> 3. คำสั่งและฟังก์ชัน (Functions Summary)
+            </h4>
+            <ul className="list-disc pl-5 mt-1 space-y-2 text-[#525a72]">
+              <li><strong>Add / Edit Details:</strong> กรอกข้อมูลวันหยุด ระบุทั้งชื่อ TH และ EN เพื่อความถูกต้องเชิงโครงสร้างสากล</li>
+              <li><strong>Interactive Search & Category Filters:</strong> สามารถเจาะจงดูแผนผังวันหยุดเฉพาะกลุ่ม เพื่อนำรายงานไปประกบตารางจัดเวลา (Shift Schedules) และส่งออกอย่างมั่นใจ</li>
+            </ul>
+          </section>
+        </div>
+
+        <div className="p-4 bg-[#f8f9fa] border-t border-[#eaeaec] flex justify-end shrink-0">
+          <button 
+            onClick={onClose} 
+            className="px-8 py-2.5 bg-[#212c46] text-white font-black rounded-xl uppercase text-[11px] hover:bg-[#414757] transition-all shadow-md tracking-wider cursor-pointer"
+          >
+            {language === 'TH' ? 'รับทราบ' : 'Got it'}
+          </button>
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
 export default function CompanyHolidays() {
   const { t } = useLanguage();
   
@@ -51,6 +140,9 @@ export default function CompanyHolidays() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('All');
+  const [selectedMonth, setSelectedMonth] = useState<string>('All');
+  const [selectedYear, setSelectedYear] = useState<string>('All');
+  const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -105,6 +197,49 @@ export default function CompanyHolidays() {
     };
   }, [holidays]);
 
+  // Helper for date extraction
+  const checkMonthYear = (dateStr: string | undefined, mFilter: string, yFilter: string) => {
+    if (!dateStr) return true;
+    const parts = dateStr.split('-');
+    const y = parts[0];
+    const m = parts[1];
+    const mMatch = mFilter === 'All' || m === mFilter;
+    const yMatch = yFilter === 'All' || y === yFilter;
+    return mMatch && yMatch;
+  };
+
+  const yearsList = useMemo(() => {
+    const yrs = new Set<string>();
+    holidays.forEach(h => { if (h.date) yrs.add(h.date.split('-')[0]); });
+    yrs.add('2026');
+    return ['All', ...Array.from(yrs).sort()];
+  }, [holidays]);
+
+  const monthsList = useMemo(() => [
+    { value: 'All', label_en: 'All Months', label_th: 'ทุกเดือน' },
+    { value: '01', label_en: 'January', label_th: 'มกราคม' },
+    { value: '02', label_en: 'February', label_th: 'กุมภาพันธ์' },
+    { value: '03', label_en: 'March', label_th: 'มีนาคม' },
+    { value: '04', label_en: 'April', label_th: 'เมษายน' },
+    { value: '05', label_en: 'May', label_th: 'พฤษภาคม' },
+    { value: '06', label_en: 'June', label_th: 'มิถุนายน' },
+    { value: '07', label_en: 'July', label_th: 'กรกฎาคม' },
+    { value: '08', label_en: 'August', label_th: 'สิงหาคม' },
+    { value: '09', label_en: 'September', label_th: 'กันยายน' },
+    { value: '10', label_en: 'October', label_th: 'ตุลาคม' },
+    { value: '11', label_en: 'November', label_th: 'พฤศจิกายน' },
+    { value: '12', label_en: 'December', label_th: 'ธันวาคม' }
+  ], []);
+
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = { All: holidays.length, 'Public Holiday': 0, 'Religious Holiday': 0, 'Royal Holiday': 0, 'Corporate Holiday': 0 };
+    holidays.forEach(h => {
+      const type = h.type || 'Public Holiday';
+      if (type in counts) counts[type]++;
+    });
+    return counts;
+  }, [holidays]);
+
   // Handle Search and Category Filter
   const filteredHolidays = useMemo(() => {
     return holidays.filter(h => {
@@ -115,10 +250,11 @@ export default function CompanyHolidays() {
         (h.date || '').toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesType = selectedTypeFilter === 'All' || h.type === selectedTypeFilter;
+      const matchesDate = checkMonthYear(h.date, selectedMonth, selectedYear);
       
-      return matchesSearch && matchesType;
+      return matchesSearch && matchesType && matchesDate;
     });
-  }, [holidays, searchQuery, selectedTypeFilter]);
+  }, [holidays, searchQuery, selectedTypeFilter, selectedMonth, selectedYear]);
 
   // Open creation modal
   const handleOpenCreateModal = () => {
@@ -238,6 +374,18 @@ export default function CompanyHolidays() {
   return (
     <div className="flex flex-col h-full w-full bg-[#f8f9fc] px-4 sm:px-8 py-6 overflow-y-auto space-y-6">
       
+      {/* user guide floating tab */}
+      <button 
+        onClick={() => setIsGuideOpen(true)} 
+        className="fixed right-0 bg-[#f8f9fa] border border-[#eaeaec] border-r-0 text-[#212c46] py-8 px-1.5 rounded-l-xl shadow-md hover:bg-[#3f809e] hover:text-white hover:border-[#3f809e] transition-all duration-500 z-[100] flex flex-col items-center gap-4 group cursor-pointer" 
+        style={{ top: '80px' }}
+      >
+        <HelpCircle size={18} className="shrink-0 group-hover:rotate-12 transition-transform text-[#7a8b95] group-hover:text-white" />
+        <span className="font-black tracking-[0.3em] [writing-mode:vertical-rl] rotate-180 whitespace-nowrap uppercase text-[11px] font-mono">USER GUIDE</span>
+      </button>
+
+      <UserGuidePanel isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
+
       {/* HEADER HERO AREA */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-[#212c46] to-[#121c2e] p-6 lg:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden shrink-0">
         <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-10 bg-[radial-gradient(circle_at_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none" />
@@ -299,21 +447,56 @@ export default function CompanyHolidays() {
 
       {/* SEARCH AND FILTERS */}
       <div className="bg-white rounded-2xl p-4 border border-[#eaeaec] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
-        {/* Dynamic Category Pill Filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          {['All', 'Public Holiday', 'Religious Holiday', 'Royal Holiday', 'Corporate Holiday'].map((typeOption) => (
-            <button
-              key={typeOption}
-              onClick={() => setSelectedTypeFilter(typeOption)}
-              className={`px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-wider transition-all cursor-pointer border ${
-                selectedTypeFilter === typeOption
-                  ? 'bg-[#212c46] text-white border-[#212c46] shadow-sm'
-                  : 'bg-slate-50 text-[#525f7a] border-[#eaeaec] hover:bg-slate-100'
-              }`}
-            >
-              {typeOption === 'All' ? t('All Types') : t(typeOption)}
-            </button>
-          ))}
+        {/* Dynamic Dropdown Filters with Count Badges & Month Picker */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Status/Type Dropdown with Badges */}
+          <div className="flex items-center gap-1.5 bg-white border border-[#eaeaec] rounded-full px-4 py-2 shadow-sm">
+            <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider font-mono">TYPE</span>
+            <select
+              value={selectedTypeFilter}
+              onChange={(e) => setSelectedTypeFilter(e.target.value)}
+              className="bg-transparent text-[11px] font-black uppercase tracking-widest outline-none cursor-pointer text-[#414757]">
+              <option value="All">All Types ({typeCounts['All'] || 0})</option>
+              <option value="Public Holiday">Public ({typeCounts['Public Holiday'] || 0})</option>
+              <option value="Religious Holiday">Religious ({typeCounts['Religious Holiday'] || 0})</option>
+              <option value="Royal Holiday">Royal ({typeCounts['Royal Holiday'] || 0})</option>
+              <option value="Corporate Holiday">Corporate ({typeCounts['Corporate Holiday'] || 0})</option>
+            </select>
+            <span className="shrink-0 bg-[#212c46] text-white font-mono text-[9px] px-1.5 py-0.5 rounded-full font-black min-w-[20px] text-center">
+              {typeCounts[selectedTypeFilter] !== undefined ? typeCounts[selectedTypeFilter] : typeCounts['All']}
+            </span>
+          </div>
+
+          {/* Date Picker for Month and Year */}
+          <div className="bg-white border border-[#eaeaec] px-3.5 py-1.5 rounded-full shadow-sm flex items-center justify-between gap-1.5">
+            <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider shrink-0 flex items-center gap-1 font-mono">
+              <Calendar size={13} className="text-[#b58c4f]" /> HOLIDAY MONTH
+            </span>
+            <div className="flex items-center gap-1 font-sans">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+              >
+                <option value="All">All Months</option>
+                {monthsList.filter(m => m.value !== 'All').map(m => (
+                  <option key={m.value} value={m.value}>
+                    {m.label_en}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+              >
+                <option value="All">All</option>
+                {yearsList.filter(y => y !== 'All').map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
         {/* Search Input Bar */}

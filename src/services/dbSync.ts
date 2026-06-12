@@ -62,9 +62,9 @@ export const dbSync = {
       console.log(`[dbSync] Attempting to read ${sheetName} from Firestore (${colName})...`);
       const colRef = collection(db, colName);
       
-      // Implement a 1200ms timeout for Firestore read to prevent long hangs
+      // Implement a 5000ms timeout for Firestore read to prevent long hangs
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error("Firestore read timeout")), 1200)
+        setTimeout(() => reject(new Error("Firestore read timeout")), 5000)
       );
       
       const snapshot = await Promise.race([
@@ -97,9 +97,9 @@ export const dbSync = {
     // 2. Try Google Apps Script (GAS) read
     if (GAS_WEB_APP_URL && GAS_WEB_APP_URL !== "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE" && GAS_WEB_APP_URL.trim() !== "") {
       try {
-        // Implement a 1500ms timeout for GAS read
+        // Implement a 10000ms timeout for GAS read
         const timeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error("GAS read timeout")), 1500)
+          setTimeout(() => reject(new Error("GAS read timeout")), 10000)
         );
         
         const response = await Promise.race([

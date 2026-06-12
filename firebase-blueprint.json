@@ -412,6 +412,90 @@
         "priority": { "type": "string" }
       },
       "required": ["id", "posId", "jobTitle", "dept", "incumbent", "successors", "status", "priority"]
+    },
+    "SalaryMaster": {
+      "title": "SalaryMaster",
+      "description": "Employee salary master database and compensation configurations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "empId": { "type": "string" },
+        "nameTh": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "image": { "type": "string" },
+        "dept": { "type": "string" },
+        "jobTitle": { "type": "string" },
+        "payType": { "type": "string" },
+        "baseSalary": { "type": "number" },
+        "workingDays": { "type": "number" },
+        "allowancePos": { "type": "number" },
+        "allowanceIncentive": { "type": "number" },
+        "allowanceTravel": { "type": "number" },
+        "allowanceMeal": { "type": "number" },
+        "allowanceAccommodation": { "type": "number" },
+        "allowanceRisk": { "type": "number" },
+        "bank": { "type": "string" },
+        "bankAcc": { "type": "string" },
+        "status": { "type": "string" },
+        "lastUpdate": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "empId", "nameTh", "nameEn"]
+    },
+    "SystemExportsAudit": {
+      "title": "SystemExportsAudit",
+      "description": "Administrative records of exported sheets or reports",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "action": { "type": "string" },
+        "sheetName": { "type": "string" },
+        "recordCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "sheetName", "createdAt"]
+    },
+    "ExternalActivity": {
+      "title": "ExternalActivity",
+      "description": "Administrative records of corporate CSR or external public relations activities",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "category": { "type": "string" },
+        "budget": { "type": "number" },
+        "participants": { "type": "number" },
+        "status": { "type": "string" },
+        "partner": { "type": "string" },
+        "deliverable": { "type": "string" }
+      },
+      "required": ["title", "date", "category"]
+    },
+    "ProbationEvaluation": {
+      "title": "ProbationEvaluation",
+      "description": "Employee performance evaluation during probation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "department": { "type": "string" },
+        "position": { "type": "string" },
+        "assessDate": { "type": "string" },
+        "hireDate": { "type": "string" },
+        "probationEndDate": { "type": "string" },
+        "status": { "type": "string" },
+        "scoreTechnical": { "type": "number" },
+        "scoreAttendance": { "type": "number" },
+        "scoreTeamwork": { "type": "number" },
+        "scorePotential": { "type": "number" },
+        "comments": { "type": "string" }
+      },
+      "required": ["id", "employeeId", "employeeName", "status"]
     }
   },
   "firestore": {
@@ -502,6 +586,22 @@
     "succession_plans": {
       "schema": "SuccessionPlan",
       "description": "Strategic position pipelines and milestone planning"
+    },
+    "salary_master": {
+      "schema": "SalaryMaster",
+      "description": "Collection of employee salary baseline details"
+    },
+    "system_exports_audit": {
+      "schema": "SystemExportsAudit",
+      "description": "Collection of exported file logs for auditing"
+    },
+    "external_activities": {
+      "schema": "ExternalActivity",
+      "description": "Collection of CSR and community partnership records"
+    },
+    "probation_evaluations": {
+      "schema": "ProbationEvaluation",
+      "description": "Collection of employee probation evaluations"
     }
   }
 }

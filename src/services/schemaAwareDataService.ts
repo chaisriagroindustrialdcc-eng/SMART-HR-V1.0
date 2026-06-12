@@ -32,7 +32,7 @@ export const SchemaAwareDataService = {
 
     try {
       // Check if API is configured
-      const scriptUrl = import.meta.env.VITE_APPS_SCRIPT_URL;
+      const scriptUrl = localStorage.getItem('cfg_apps_script_url') || import.meta.env.VITE_APPS_SCRIPT_URL;
       if (!scriptUrl) {
         console.warn(`[Schema-Aware Service] VITE_APPS_SCRIPT_URL is not configured. Falling back to LocalStorage.`);
         // LocalStorage Fallback
@@ -99,7 +99,7 @@ export const SchemaAwareDataService = {
    */
   async getAll(sheetName: string, defaultData: any[] = []): Promise<any[]> {
     try {
-      const scriptUrl = import.meta.env.VITE_APPS_SCRIPT_URL;
+      const scriptUrl = localStorage.getItem('cfg_apps_script_url') || import.meta.env.VITE_APPS_SCRIPT_URL;
       if (!scriptUrl) {
         const storageKey = `gas_fallback_sheet_${sheetName}`;
         const existingDataRaw = localStorage.getItem(storageKey);

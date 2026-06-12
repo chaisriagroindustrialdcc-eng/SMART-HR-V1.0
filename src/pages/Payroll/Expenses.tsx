@@ -457,6 +457,8 @@ const EditExpenseModal = ({ isOpen, onClose, record: activeRecord, onSave }: Edi
 export default function Expenses() {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
+  const [selectedMonth, setSelectedMonth] = useState('All');
+  const [selectedYear, setSelectedYear] = useState('All');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [modal, setModal] = useState<{ isOpen: boolean; record: ExpenseRecord | null }>({ isOpen: false, record: null });
@@ -473,18 +475,53 @@ export default function Expenses() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Helper for date extraction
+  const checkMonthYear = (dateStr: string | undefined, mFilter: string, yFilter: string) => {
+    if (!dateStr) return true;
+    const parts = dateStr.split('-');
+    const y = parts[0];
+    const m = parts[1];
+    const mMatch = mFilter === 'All' || m === mFilter;
+    const yMatch = yFilter === 'All' || y === yFilter;
+    return mMatch && yMatch;
+  };
+
+  const yearsList = useMemo(() => {
+    const yrs = new Set<string>();
+    records.forEach(r => { if (r.date) yrs.add(r.date.split('-')[0]); });
+    yrs.add('2026');
+    return ['All', ...Array.from(yrs).sort()];
+  }, [records]);
+
+  const months = useMemo(() => [
+    { value: 'All', label_en: 'All Months', label_th: 'ทุกเดือน' },
+    { value: '01', label_en: 'January', label_th: 'มกราคม' },
+    { value: '02', label_en: 'February', label_th: 'กุมภาพันธ์' },
+    { value: '03', label_en: 'March', label_th: 'มีนาคม' },
+    { value: '04', label_en: 'April', label_th: 'เมษายน' },
+    { value: '05', label_en: 'May', label_th: 'พฤษภาคม' },
+    { value: '06', label_en: 'June', label_th: 'มิถุนายน' },
+    { value: '07', label_en: 'July', label_th: 'กรกฎาคม' },
+    { value: '08', label_en: 'August', label_th: 'สิงหาคม' },
+    { value: '09', label_en: 'September', label_th: 'กันยายน' },
+    { value: '10', label_en: 'October', label_th: 'ตุลาคม' },
+    { value: '11', label_en: 'November', label_th: 'พฤศจิกายน' },
+    { value: '12', label_en: 'December', label_th: 'ธันวาคม' }
+  ], []);
+
   const filterCounts = useMemo(() => {
-    const counts: Record<string, number> = { All: records.length };
-    records.forEach(r => counts[r.status] = (counts[r.status] || 0) + 1);
+    const counts: Record<string, number> = { All: records.length, Draft: 0, Pending: 0, Approved: 0, Paid: 0, Rejected: 0 };
+    records.forEach(r => { counts[r.status] = (counts[r.status] || 0) + 1; });
     return counts;
   }, [records]);
 
   const filteredRecords = useMemo(() => {
     return records.filter(r => 
       (activeFilter === 'All' || r.status === activeFilter) &&
-      (r.nameEn.toLowerCase().includes(search.toLowerCase()) || r.ticketId.toLowerCase().includes(search.toLowerCase()) || r.type.toLowerCase().includes(search.toLowerCase()) || r.dept.toLowerCase().includes(search.toLowerCase()))
+      (r.nameEn.toLowerCase().includes(search.toLowerCase()) || r.ticketId.toLowerCase().includes(search.toLowerCase()) || r.type.toLowerCase().includes(search.toLowerCase()) || r.dept.toLowerCase().includes(search.toLowerCase())) &&
+      checkMonthYear(r.date, selectedMonth, selectedYear)
     );
-  }, [records, search, activeFilter]);
+  }, [records, search, activeFilter, selectedMonth, selectedYear]);
 
   const handleSave = (data: ExpenseRecord) => {
     if (data.id) {
@@ -536,7 +573,7 @@ export default function Expenses() {
       
       {/* Floating User Guide Button (Matching UserPermissions style) */}
       {typeof document !== 'undefined' && createPortal(
-        <button onClick={() => setIsGuideOpen(true)} className="fixed right-0 bg-[#f8fafc] border border-[#eaeaec] border-r-0 text-[#212c46] py-8 px-1.5 rounded-l-xl shadow-md hover:bg-[#932c2e] hover:text-white hover:border-[#932c2e] transition-all duration-500 z-[100] flex flex-col items-center gap-4 group cursor-pointer" style={{ top: '120px' }}>
+        <button onClick={() => setIsGuideOpen(true)} className="fixed right-0 bg-[#f8fafc] border border-[#eaeaec] border-r-0 text-[#212c46] py-8 px-1.5 rounded-l-xl shadow-md hover:bg-[#932c2e] hover:text-white hover:border-[#932c2e] transition-all duration-500 z-[100] flex flex-col items-center gap-4 group cursor-pointer" style={{ top: '80px' }}>
             <HelpCircle size={18} className="shrink-0 group-hover:rotate-12 transition-transform text-[#7a8b95] group-hover:text-white" />
             <span className="font-black tracking-[0.3em] [writing-mode:vertical-rl] rotate-180 whitespace-nowrap uppercase text-[10px] font-mono leading-none">USER GUIDE</span>
         </button>,
@@ -601,16 +638,19 @@ export default function Expenses() {
                 
                 {/* FILTER CONTROL SEGMENT */}
                 <div className="px-8 py-4 border-b border-[#eaeaec] bg-[#f8f9fa] flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
-                    <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                         <div className="relative" ref={dropdownRef}>
                           <button 
                             onClick={() => setIsFilterOpen(!isFilterOpen)}
-                            className="flex items-center justify-between gap-3 px-4 py-2 bg-[#f3f3f1] border border-slate-200 rounded-xl min-w-[200px] text-[11px] font-black uppercase tracking-widest text-[#414757] hover:bg-white transition-all shadow-xs active:scale-95 cursor-pointer"
+                            className="flex items-center justify-between gap-3 px-4 py-2 bg-white border border-slate-200 rounded-xl min-w-[200px] text-[11px] font-black uppercase tracking-widest text-[#414757] hover:bg-slate-50 transition-all shadow-xs active:scale-95 cursor-pointer"
                           >
                             <div className="flex items-center gap-2">
                                 <HelpCircle size={14} className="text-[#b58c4f]"/>
                                 {activeFilter === 'All' ? 'Filter: Global Registry' : `Status: ${activeFilter}`}
                             </div>
+                            <span className="shrink-0 bg-[#212c46] text-white font-mono text-[9px] px-1.5 py-0.5 rounded-md font-black min-w-[20px] text-center">
+                              {filterCounts[activeFilter] || filterCounts['All'] || 0}
+                            </span>
                             <ChevronDown size={14} className={`transition-transform duration-300 ${isFilterOpen ? 'rotate-180' : ''}`}/>
                           </button>
 
@@ -631,6 +671,37 @@ export default function Expenses() {
                                 ))}
                             </div>
                           )}
+                        </div>
+
+                        {/* Date Picker for month and year */}
+                        <div className="bg-white border border-[#eaeaec] px-3.5 py-1.5 rounded-xl shadow-xs flex items-center justify-between gap-1.5">
+                          <span className="text-[10px] font-black uppercase text-[#525f7a] tracking-wider shrink-0 flex items-center gap-1 font-mono">
+                            <Calendar size={13} className="text-[#b58c4f]" /> CLAIMS MONTH
+                          </span>
+                          <div className="flex items-center gap-1 font-sans">
+                            <select
+                              value={selectedMonth}
+                              onChange={(e) => setSelectedMonth(e.target.value)}
+                              className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+                            >
+                              <option value="All">All Months</option>
+                              {months.filter(m => m.value !== 'All').map(m => (
+                                <option key={m.value} value={m.value}>
+                                  {m.label_en}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              value={selectedYear}
+                              onChange={(e) => setSelectedYear(e.target.value)}
+                              className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+                            >
+                              <option value="All">All</option>
+                              {yearsList.filter(y => y !== 'All').map(y => (
+                                <option key={y} value={y}>{y}</option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                     </div>
 

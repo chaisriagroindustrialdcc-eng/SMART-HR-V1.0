@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { ApiResponse } from '../types';
 
-const SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL || '';
+const SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbx3DLqU1OH1AtUnZnRBzte6JaIiL5Yw29wVfUQDrXCuV17uTY4noGoaAO5sn4dvR-CHQg/exec';
 
 // Output setup status for easy debugging
 console.log('App initialization - GAS Backend URL configured:', !!SCRIPT_URL);
@@ -34,18 +34,46 @@ export const cache = {
 
 export const api = {
   post: async <T = any>(action: string, sheet?: string, data?: any, params?: { limit?: number, offset?: number }): Promise<ApiResponse<T>> => {
-    if (!SCRIPT_URL) {
-      console.warn('VITE_APPS_SCRIPT_URL is not set. Using mock response.');
+    // Intercept mock logins for DEMO, DEV001, and U001 so they can always log in even if not present in Google Sheets yet
+    if (action === 'login' && data) {
+      const empId = data.employeeId;
+      const iCard = data.idCard;
+      if (
+        (empId === 'DEMO' && iCard === 'DEMO123456789') || 
+        (empId === 'U001' && iCard === 'ADMIN12345678') ||
+        (empId === 'DEV001' && iCard === '1234567890123')
+      ) {
+        console.log('Intercepting login with built-in development credentials:', empId);
+        return mockResponse(action, data);
+      }
+    }
+
+    const activeUrl = localStorage.getItem('cfg_apps_script_url') || 
+                      import.meta.env.VITE_APPS_SCRIPT_URL || 
+                      'https://script.google.com/macros/s/AKfycbx3DLqU1OH1AtUnZnRBzte6JaIiL5Yw29wVfUQDrXCuV17uTY4noGoaAO5sn4dvR-CHQg/exec';
+
+    if (!activeUrl) {
+      console.warn('Google Apps Script URL is not configured. Using mock response.');
       return mockResponse(action, data);
     }
     
     try {
-      const response = await fetch(SCRIPT_URL, {
+      const activeApiKey = localStorage.getItem('cfg_apps_script_api_key') || 
+                           import.meta.env.VITE_API_KEY || 
+                           'your_secret_key_here';
+
+      const response = await fetch(activeUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'text/plain;charset=utf-8',
         },
-        body: JSON.stringify({ action, sheet, data, ...params }),
+        body: JSON.stringify({ 
+          action, 
+          sheet, 
+          data, 
+          apiKey: activeApiKey,
+          ...params 
+        }),
       });
       return await response.json();
     } catch (error) {
@@ -55,8 +83,8 @@ export const api = {
   }
 };
 
-// Mock response for development if URL is not set
-const mockResponse = async (action: string, data: any): Promise<ApiResponse> => {
+// Mock response for development if URL is not set or bypassed
+async function mockResponse(action: string, data: any): Promise<ApiResponse> {
   await new Promise(resolve => setTimeout(resolve, 800));
   
   if (action === 'login') {
@@ -87,4 +115,4 @@ const mockResponse = async (action: string, data: any): Promise<ApiResponse> => 
   }
   
   return { status: 'success', data: [] };
-};
+}

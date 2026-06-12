@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import * as Icons from 'lucide-react';
 import { SchemaAwareDataService } from '../../services/schemaAwareDataService';
 import { DraggableModal } from '../../components/shared/DraggableModal';
@@ -73,12 +74,90 @@ const DEFAULT_SESSIONS: InHouseSession[] = [
   }
 ];
 
+// --- User Guide Panel for In-House Training ---
+function UserGuidePanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <>
+      <div className={`fixed inset-0 z-[190] bg-[#212c46]/60 backdrop-blur-sm transition-opacity duration-500 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={onClose}/>
+      <div className={`fixed inset-y-0 right-0 z-[200] w-full md:w-[500px] bg-white shadow-2xl transform transition-transform duration-500 ease-in-out flex flex-col border-l-4 border-[#657f4d] ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        
+        <div className="flex justify-between items-center p-5 px-6 border-b-2 border-[#657f4d] bg-[#212c46] text-white shrink-0">
+          <div>
+            <h3 className="font-black flex items-center gap-3 uppercase tracking-widest text-[15px]"><Icons.BookOpen size={20} className="text-[#657f4d]"/> IN-HOUSE TRAINING GUIDE</h3>
+            <p className="text-[11px] font-bold text-[#d7d7d7] uppercase tracking-widest mt-1">คู่มือหลักสูตรฝึกอบรมภายใน</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-white/50 hover:text-[#932c2e] hover:bg-white/10 rounded-xl transition-colors"><Icons.X size={24}/></button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 text-[#414757] text-[12px] leading-relaxed custom-scrollbar bg-white animate-fadeIn">
+          <section>
+            <h4 className="text-[13px] font-black text-[#212c46] mb-3 uppercase flex items-center gap-2 border-b-2 border-[#eaeaec] pb-2 font-mono">
+              <Icons.GraduationCap size={18} className="text-[#657f4d]"/> 1. ทัศนวิสัยและการจดบันทึกคอร์ส
+            </h4>
+            <p className="text-[12px] mb-2 font-sans text-[#525a72]">
+              เป็นเมนูบันทึก คอร์สฝึกอบรมภายในบริษัท เพื่อสร้างความชำนาญการ และจัดอบรมตามกรอบความปลอดภัยตามกฎหมายเป็นหลัก
+            </p>
+            <ul className="list-none pl-0 space-y-2 mt-2">
+              <li className="flex items-start gap-2 bg-[#f8f9fa] p-3 rounded-xl border border-[#eaeaec]">
+                <Icons.Plus size={16} className="shrink-0 text-[#657f4d] mt-0.5" />
+                <span>การลงทะเบียนเพิ่มคอร์ส: ทำได้ผ่านหัวข้อปุ่ม <strong>+ ADD NEW SESSION</strong> โดยมีกรอกวิทยากร ค่าใช้จ่ายร่วม และรหัสสถานะเป็นสำคัญ</span>
+              </li>
+              <li className="flex items-start gap-2 bg-[#f8f9fa] p-3 rounded-xl border border-[#eaeaec]">
+                <Icons.Target size={16} className="shrink-0 text-[#b58c4f] mt-0.5" />
+                <span>ค่าใช้จ่ายแฝง: บันทึกข้อมูลค่าใช้จ่ายและงบประมาณเพื่อสรุปงบจัดสรรในการประชุมผู้บริหาร</span>
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h4 className="text-[13px] font-black text-[#212c46] mb-3 uppercase flex items-center gap-2 border-b-2 border-[#eaeaec] pb-2 font-mono">
+              <Icons.ShieldAlert size={18} className="text-[#a94228]"/> 2. วงจรสถานะงานสัมมนา (Status Lifecycle)
+            </h4>
+            <p className="text-[11px] text-[#7a8b95] uppercase tracking-wide mb-2">พนักงานฝึกอบรมดูแลความคืบหน้ารายงานสำคัญผ่าน 4 ระดับ:</p>
+            <div className="space-y-2">
+              <div className="p-3 bg-[#e0f2fe]/40 rounded-xl border border-[#e0f2fe]">
+                <span className="font-extrabold text-[#0369a1] text-[11px] block">DRAFT / SCHEDULED</span>
+                ขั้นตอนเตรียมการและการจองนัดหมายพนักงานล่วงหน้า
+              </div>
+              <div className="p-3 bg-[#fef3c7]/40 rounded-xl border border-[#fef3c7]">
+                <span className="font-extrabold text-[#b45309] text-[11px] block">IN PROGRESS</span>
+                ช่วงระยะเวลาพนักงานกำลังร่วมชั้นเรียนตามกำหนดการสัมมนาหลัก
+              </div>
+              <div className="p-3 bg-[#dcfce7]/40 rounded-xl border border-[#dcfce7]">
+                <span className="font-extrabold text-[#15803d] text-[11px] block">COMPLETED</span>
+                หลักสูตรเรียบร้อย และประเมินคะแนนสรุปย้อนหลังเป็นสถิติองค์การ
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h4 className="text-[13px] font-black text-[#212c46] mb-3 uppercase flex items-center gap-2 border-b-2 border-[#eaeaec] pb-2 font-mono">
+              <Icons.FileSpreadsheet size={18} className="text-[#3f809e]"/> 3. การพิมพ์รายงานและ KPI Analytics
+            </h4>
+            <p className="text-[12px] text-[#525a72]">
+              ผู้ดูแลสามารถสืบค้น ค้นหาคอร์สด้วยชื่อ ยึดตารางแบบเรียบง่ายและสามารถคลิกปุ่ม <strong>PRINT GUIDE REPORT</strong> เพื่อจัดเก็บเป็นต้นแบบบำรุงทรัพยากรบุคคล
+            </p>
+          </section>
+        </div>
+        
+        <div className="p-4 bg-[#f8f9fa] border-t border-[#eaeaec] flex justify-end shrink-0">
+          <button onClick={onClose} className="px-8 py-2.5 bg-[#212c46] text-white font-black rounded-xl uppercase text-[11px] hover:bg-[#414757] hover:text-white transition-all shadow-md tracking-[0.1em] cursor-pointer">รับทราบ (Got it)</button>
+        </div>
+      </div>
+    </>, document.body
+  );
+}
+
 export default function InHouseTraining() {
   const { t } = useLanguage();
   const [sessions, setSessions] = useState<InHouseSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [selectedMonth, setSelectedMonth] = useState('All');
+  const [selectedYear, setSelectedYear] = useState('All');
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -103,6 +182,46 @@ export default function InHouseTraining() {
     loadData();
   }, []);
 
+  // Helper for date extraction
+  const checkMonthYear = (dateStr: string | undefined, mFilter: string, yFilter: string) => {
+    if (!dateStr) return true;
+    const parts = dateStr.split('-');
+    const y = parts[0];
+    const m = parts[1];
+    const mMatch = mFilter === 'All' || m === mFilter;
+    const yMatch = yFilter === 'All' || y === yFilter;
+    return mMatch && yMatch;
+  };
+
+  const yearsList = useMemo(() => {
+    const yrs = new Set<string>();
+    sessions.forEach(s => { if (s.date) yrs.add(s.date.split('-')[0]); });
+    yrs.add('2026');
+    return ['All', ...Array.from(yrs).sort()];
+  }, [sessions]);
+
+  const months = useMemo(() => [
+    { value: 'All', label_en: 'All Months', label_th: 'ทุกเดือน' },
+    { value: '01', label_en: 'January', label_th: 'มกราคม' },
+    { value: '02', label_en: 'February', label_th: 'กุมภาพันธ์' },
+    { value: '03', label_en: 'March', label_th: 'มีนาคม' },
+    { value: '04', label_en: 'April', label_th: 'เมษายน' },
+    { value: '05', label_en: 'May', label_th: 'พฤษภาคม' },
+    { value: '06', label_en: 'June', label_th: 'มิถุนายน' },
+    { value: '07', label_en: 'July', label_th: 'กรกฎาคม' },
+    { value: '08', label_en: 'August', label_th: 'สิงหาคม' },
+    { value: '09', label_en: 'September', label_th: 'กันยายน' },
+    { value: '10', label_en: 'October', label_th: 'ตุลาคม' },
+    { value: '11', label_en: 'November', label_th: 'พฤศจิกายน' },
+    { value: '12', label_en: 'December', label_th: 'ธันวาคม' }
+  ], []);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { All: sessions.length, Draft: 0, Scheduled: 0, 'In Progress': 0, Completed: 0 };
+    sessions.forEach(s => { if (s.status in counts) counts[s.status]++; });
+    return counts;
+  }, [sessions]);
+
   // Filter sessions
   const filteredSessions = useMemo(() => {
     return sessions.filter(s => {
@@ -113,9 +232,10 @@ export default function InHouseTraining() {
         s.location?.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchStatus = statusFilter === 'All' ? true : s.status === statusFilter;
-      return matchSearch && matchStatus;
+      const matchDate = checkMonthYear(s.date, selectedMonth, selectedYear);
+      return matchSearch && matchStatus && matchDate;
     });
-  }, [sessions, searchTerm, statusFilter]);
+  }, [sessions, searchTerm, statusFilter, selectedMonth, selectedYear]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -186,66 +306,86 @@ export default function InHouseTraining() {
   };
 
   return (
-    <div className="flex-1 px-4 sm:px-8 py-6 bg-[#f3f3f1] font-sans text-left min-h-screen">
+    <div className="flex flex-1 w-full flex-col animate-fadeIn bg-transparent space-y-4 font-sans text-left min-h-screen">
+      
+      {/* 1. Header user guide floating tab */}
+      <button 
+        onClick={() => setIsGuideOpen(true)} 
+        className="fixed right-0 bg-[#f8f9fa] border border-[#eaeaec] border-r-0 text-[#212c46] py-8 px-1.5 rounded-l-xl shadow-md hover:bg-[#657f4d] hover:text-white hover:border-[#657f4d] transition-all duration-500 z-[100] flex flex-col items-center gap-4 group cursor-pointer" 
+        style={{ top: '80px' }}
+      >
+        <Icons.HelpCircle size={18} className="shrink-0 group-hover:rotate-12 transition-transform text-[#7a8b95] group-hover:text-white" />
+        <span className="font-black tracking-[0.3em] [writing-mode:vertical-rl] rotate-180 whitespace-nowrap uppercase text-[11px] font-mono">USER GUIDE</span>
+      </button>
+
+      <UserGuidePanel isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
+
       {/* Header section representing the executive style */}
-      <div className="pb-5 mb-5 relative overflow-hidden">
-        <div className="absolute right-[-5%] bottom-[-30%] opacity-10 pointer-events-none transform -rotate-12 text-[#212c46]">
-          <Icons.GraduationCap size={150} />
-        </div>
-        <div className="relative z-10">
-          <p className="text-[10px] text-[#b58c4f] font-black uppercase tracking-widest leading-none">TALENT DEVELOPMENT SUITE</p>
-          <h1 className="text-2xl font-black tracking-tight uppercase mt-1 text-[#212c46]">IN-HOUSE TRAINING DIRECTORY</h1>
-          <p className="text-[#7a8b95] text-[11px] mt-1 uppercase tracking-widest font-bold">
-            internal capability coaching, safety certifications & organizational workshops
-          </p>
+      <div className="h-14 px-8 flex flex-row items-center justify-between gap-4 z-20 shrink-0 bg-transparent">
+        <div className="flex items-center gap-5">
+          <div className="relative flex items-center justify-center cursor-default shrink-0">
+            <div className="absolute inset-0 bg-[#657f4d] blur-[15px] opacity-20 rounded-full"></div>
+            <div className="relative z-10 w-10 h-10 border border-slate-200 rounded-2xl bg-white/50 backdrop-blur-sm shadow-sm flex items-center justify-center">
+              <Icons.GraduationCap size={20} strokeWidth={2.5} className="text-[#657f4d]" />
+            </div>
+          </div>
+          <div>
+            <h3 className="font-black text-[#212c46] uppercase tracking-tighter leading-none" style={{ fontSize: '24px' }}>
+              หลักสูตรฝึกอบรมภายใน <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#657f4d] to-[#b58c4f]">IN-HOUSE TRAINING DIRECTORY</span>
+            </h3>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mt-0.5 leading-none">
+              internal capability coaching, safety certifications & organizational workshops
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* KPI Cards section */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <KpiCard 
-          title="TOTAL REGISTERED SESSIONS"
-          value={stats.total}
-          color="#3f809e"
-          icon={Icons.ListCollapse}
-          description="Total training session entries logged"
-        />
-        <KpiCard 
-          title="SCHEDULED EVENTS"
-          value={stats.scheduled}
-          color="#b58c4f"
-          icon={Icons.CalendarClock}
-          description="Inbound slated sessions"
-        />
-        <KpiCard 
-          title="TOTAL TRAINED ASSOCIATES"
-          value={stats.participants}
-          color="#657f4d"
-          icon={Icons.Sparkles}
-          description="Count of participant sign-ups"
-        />
-        <KpiCard 
-          title="INVESTED COGNITIVE COSTS"
-          value={`${stats.totalCost.toLocaleString()} ฿`}
-          color="#a94228"
-          icon={Icons.Coins}
-          description="Total course expense registry"
-        />
-      </div>
+      <div className="px-4 sm:px-8 w-full mt-[2px] space-y-4">
+        {/* KPI Cards section */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
+          <KpiCard 
+            title="TOTAL REGISTERED SESSIONS"
+            value={stats.total}
+            color="#3f809e"
+            icon={Icons.ListCollapse}
+            description="Total training session entries logged"
+          />
+          <KpiCard 
+            title="SCHEDULED EVENTS"
+            value={stats.scheduled}
+            color="#b58c4f"
+            icon={Icons.CalendarClock}
+            description="Inbound slated sessions"
+          />
+          <KpiCard 
+            title="TOTAL TRAINED ASSOCIATES"
+            value={stats.participants}
+            color="#657f4d"
+            icon={Icons.Sparkles}
+            description="Count of participant sign-ups"
+          />
+          <KpiCard 
+            title="INVESTED COGNITIVE COSTS"
+            value={`${stats.totalCost.toLocaleString()} ฿`}
+            color="#a94228"
+            icon={Icons.Coins}
+            description="Total course expense registry"
+          />
+        </div>
 
       {/* Main training table with integrated controls */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm" id="inhouse-integrated-registry">
         {/* Unified Tool and Filter Header */}
         <div className="p-4 bg-slate-50/80 border-b border-slate-100 flex flex-col xl:flex-row gap-4 items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto items-center">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-2.5 w-full xl:w-auto items-center">
             <span className="text-[#212c46] font-black text-xs uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1.5 font-sans">
               <Icons.Library size={14} className="text-[#3f809e]"/> Registry List ({filteredSessions.length})
             </span>
             {/* Search */}
-            <div className="relative w-full sm:w-72">
+            <div className="relative w-full sm:w-56">
               <input
                 type="text"
-                placeholder="Search by course name or trainer..."
+                placeholder="Search by course or trainer..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#212c46]/10 focus:border-[#212c46] bg-white"
@@ -253,18 +393,55 @@ export default function InHouseTraining() {
               <Icons.Search size={14} className="absolute left-3 top-3 text-slate-400" />
             </div>
 
-            {/* Status filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full sm:w-44 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-[#212c46]"
-            >
-              <option value="All">All Statuses</option>
-              <option value="Draft">Draft</option>
-              <option value="Scheduled">Scheduled</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Completed">Completed</option>
-            </select>
+            {/* Status filter with counts */}
+            <div className="flex items-center gap-1.5 bg-white border border-[#eaeaec] px-3.5 py-2 rounded-xl shadow-xs">
+              <Icons.CheckCircle size={13} className="text-emerald-600" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer focus:outline-none"
+              >
+                <option value="All">All Statuses ({statusCounts['All']})</option>
+                <option value="Draft">Draft ({statusCounts['Draft']})</option>
+                <option value="Scheduled">Scheduled ({statusCounts['Scheduled']})</option>
+                <option value="In Progress">In Progress ({statusCounts['In Progress']})</option>
+                <option value="Completed">Completed ({statusCounts['Completed']})</option>
+              </select>
+              <span className="shrink-0 bg-[#212c46] text-white font-mono text-[9px] px-1.5 py-0.5 rounded-md font-black min-w-[20px] text-center">
+                {statusCounts[statusFilter] || statusCounts['All'] || 0}
+              </span>
+            </div>
+
+            {/* Date picker for month and year */}
+            <div className="bg-white border border-[#eaeaec] px-3.5 py-2 rounded-xl shadow-xs flex items-center justify-between gap-1.5">
+              <span className="text-[10px] font-black uppercase text-[#525f7a] tracking-wider shrink-0 flex items-center gap-1 font-mono">
+                <Icons.Calendar size={13} className="text-[#b58c4f]" /> SCHEDULED
+              </span>
+              <div className="flex items-center gap-1">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+                >
+                  <option value="All">{useLanguage().language === 'TH' ? 'ทุกเดือน' : 'All Months'}</option>
+                  {months.filter(m => m.value !== 'All').map(m => (
+                    <option key={m.value} value={m.value}>
+                      {useLanguage().language === 'TH' ? m.label_th : m.label_en}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="bg-[#f8f9fc] border border-[#eaeaec] px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold text-[#212c46] outline-none cursor-pointer focus:border-[#709654]"
+                >
+                  <option value="All">{useLanguage().language === 'TH' ? 'ทุกปี' : 'All'}</option>
+                  {yearsList.filter(y => y !== 'All').map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           <div className="flex gap-2.5 w-full xl:w-auto justify-end">
@@ -608,6 +785,7 @@ export default function InHouseTraining() {
           </div>
         </PrintableReport>
       </PrintPreviewModal>
+      </div>
     </div>
   );
 }
